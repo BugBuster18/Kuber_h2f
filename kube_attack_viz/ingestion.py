@@ -35,20 +35,29 @@ _RELATIONSHIP_BASE_WEIGHTS: dict[str, float] = {
     "writes": 4.0,
 }
 
-_RESOURCE_RISK_SCORES: dict[str, float] = {
-    "pod": 3.0,
-    "service": 2.0,
-    "serviceaccount": 4.0,
-    "role": 3.5,
-    "clusterrole": 5.0,
-    "rolebinding": 3.0,
-    "clusterrolebinding": 5.5,
-    "secret": 7.0,
-    "configmap": 2.5,
+_RESOURCE_IMPACT_SCORES: dict[str, float] = {
+    "pod": 4.0,
+    "service": 3.0,
+    "serviceaccount": 5.0,
+    "role": 4.5,
+    "clusterrole": 6.5,
+    "rolebinding": 3.5,
+    "clusterrolebinding": 6.0,
+    "secret": 9.0,         # High value
+    "configmap": 3.0,
     "namespace": 1.0,
-    "database": 8.0,
-    "node": 6.0,
-    "ingress": 3.0,
+    "database": 10.0,      # Maximum value target
+    "node": 7.0,
+    "ingress": 4.0,
+}
+
+_RESOURCE_BASE_LIKELIHOOD: dict[str, float] = {
+    "pod": 2.0,
+    "service": 3.0,
+    "serviceaccount": 2.0,
+    "role": 1.0,
+    "secret": 1.5,
+    "database": 1.0,
 }
 
 
@@ -151,19 +160,32 @@ def _extract_pods(raw: dict[str, Any]) -> list[NodeData]:
         ns = meta.get("namespace", "default")
         node_id = _make_node_id("pod", ns, name)
 
-        # Pods exposed to external traffic are potential entry points
         is_source = spec.get("hostNetwork", False)
 
-        risk = _RESOURCE_RISK_SCORES.get("pod", 3.0)
-
-        # Elevate risk for privileged containers
+        # Baseline Impact and Likelihood
+        impact = _RESOURCE_IMPACT_SCORES.get("pod", 4.0)
+        likelihood = _RESOURCE_BASE_LIKELIHOOD.get("pod", 2.0)
+        
+        if spec.get("hostNetwork", False):
+            likelihood += 3.0
+            
+        # Elevate likelihood/impact for privileged containers
+        image_name = None
         containers = spec.get("containers", [])
         for c in containers:
+            if not image_name:
+                image_name = c.get("image")
             sec = c.get("securityContext", {})
             if sec.get("privileged", False):
-                risk = min(risk + 3.0, 10.0)
+                likelihood += 3.0      # Easier breakout -> Higher likelihood
+                impact += 1.0          # Access to host -> Higher impact
             if sec.get("runAsUser") == 0:
-                risk = min(risk + 2.0, 10.0)
+                likelihood += 2.0      # Root user -> Easier exploit
+
+        # Risk = Normalized Likelihood * Impact
+        likelihood = min(likelihood, 10.0)
+        impact = min(impact, 10.0)
+        risk = (likelihood / 10.0) * impact
 
         nodes.append(
             NodeData(
@@ -172,9 +194,12 @@ def _extract_pods(raw: dict[str, Any]) -> list[NodeData]:
                 name=name,
                 namespace=ns,
                 risk_score=risk,
+                likelihood=likelihood,
+                impact=impact,
                 is_source=is_source,
                 is_sink=False,
                 cves=[],
+                image=image_name
             )
         )
     return nodes
@@ -537,3 +562,70 @@ def dump_raw_kubernetes_state(filepath: str | Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(resources, f, indent=2)
+
+
+def enrich_cluster_graph(cluster: ClusterGraph) -> int:
+    """Scan cluster for CVEs and fetch live CVSS scores from NVD.
+
+    Returns:
+        Number of successfully enriched items.
+    """
+    from .cve_service import enricher
+    from rich.progress import Progress
+
+    enriched_count = 0
+    cves_to_check = set()
+
+    # Collect all CVEs
+    for node in cluster.nodes:
+        # 1. Existing CVEs
+        for cve in node.cves:
+            cves_to_check.add(cve)
+        
+        # 2. Dynamic Image Discovery
+        if node.type == "pod" and node.image:
+            discovered = enricher.discover_cves_for_image(node.image)
+            for d in discovered:
+                if d["id"] not in node.cves:
+                    node.cves.append(d["id"])
+                # Increase node risk by discovered CVSS
+                node.risk_score = max(node.risk_score, d["cvss"])
+                enriched_count += 1
+
+    for edge in cluster.edges:
+        if edge.cve:
+            cves_to_check.add(edge.cve)
+
+    if not cves_to_check:
+        return 0
+
+    with Progress() as progress:
+        task = progress.add_task("[cyan]Enriching CVEs from NVD...", total=len(cves_to_check))
+        
+        cve_map = {}
+        for cve in cves_to_check:
+            score = enricher.get_cvss(cve)
+            if score is not None:
+                cve_map[cve] = score
+                enriched_count += 1
+            progress.update(task, advance=1)
+
+    # Apply scores
+    for node in cluster.nodes:
+        # Update Node Likelihood based on CVSS
+        max_cvss = 0.0
+        for cve in node.cves:
+            if cve in cve_map:
+                max_cvss = max(max_cvss, cve_map[cve])
+        
+        if max_cvss > 0:
+            # Shift likelihood up by up to 5 points (half of CVSS)
+            node.likelihood = min(10.0, (node.likelihood or 0.1) + (max_cvss / 2.0))
+            # Recalculate Risk Score: (L/10) * I
+            node.risk_score = (node.likelihood / 10.0) * (node.impact or 1.0)
+
+    for edge in cluster.edges:
+        if edge.cve in cve_map:
+            edge.cvss = cve_map[edge.cve]
+
+    return enriched_count

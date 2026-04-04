@@ -1,179 +1,110 @@
 # 🛡️ KubeAttackViz v2.0 — Full Command Reference
 
-This document provides a detailed breakdown of all available CLI commands, flags, and usage examples.
+This document provides a detailed breakdown of all available CLI commands, flags, and usage examples for the production-grade Kubernetes Attack Path Visualizer.
 
 ---
 
-## 🏗️ General Usage Notes
+## 🏗️ 1. Core Concepts & Defaults (v2.0)
 
-Every analysis command (except `diff`, `run-tests`, and `dump-raw`) requires a data source:
-- **`--input <file.json>`**: Point to a local JSON graph file.
-- **`--kubectl`**: Query a live Kubernetes cluster.
-
-### 🧠 Algorithm Toggle (v2.0)
-Most commands now support a **CVSS Weight Intelligence** toggle:
+### 🧠 Algorithm: Weight Intelligence
+Every analysis command now supports a **CVSS Weight Intelligence** toggle:
 - **`--cvss-weights` (Default)**: Automatically reduces edge weights for high-CVSS vulnerabilities. A path with a CVSS 10.0 exploit is treated as much "shorter" (easier) than a path with low-CVSS or no CVE.
-- **`--no-cvss-weights`**: Disables this intelligence. Dijkstra will only use the literal `weight` numbers provided in the JSON input. Use this for pure mathematical verification against a mock dataset.
+- **`--no-cvss-weights`**: Disables this intelligence.
+
+### 🌐 Live CVE Enrichment (NVD API v2.0)
+- **`--enrich` (Default)**: Automatically queries the NIST NVD API for any CVE ID or Container Image found in your cluster to get real-time CVSS scores.
+- **`--no-enrich`**: Skips network calls (Offline mode).
+
+### 📊 Industry Standard Risk Model
+All nodes now use a **Risk = Likelihood × Impact** model. 
+- **Impact**: Determined by resource type (e.g., Secrets = 9, Databases = 10).
+- **Likelihood**: Derived from exposure (`is_source`), configuration (`privileged`), and `CVSS` scores.
 
 ---
 
-## 🔎 1. Core Graph Analysis
+## 🔎 2. Analysis Commands
 
-### `full-report`
-Generates a comprehensive security report containing all analysis results.
+### `full-report` (The Kill Chain Audit)
+Generates a comprehensive security audit. Defaults to saving a text report.
 - **Flags**:
-  - `--input <json>` / `--kubectl`: Source data.
-  - `--blast-source <id/name>`: Focus blast radius on a specific entry point.
-  - `--blast-depth <int>`: Max depth for the blast radius (default: 3).
-  - `--no-cvss-weights`: Skip CVSS-based weight adjustment.
-  - `--export json`: Save raw results to `report.json`.
+  - `--output` / `-o`: Save human-readable report (Default: `report.txt`).
+  - `--output-json`: Export machine-readable results (Default: None).
+  - `--no-enrich`: Skip NIST NVD real-time enrichment.
 - **Example**:
   ```bash
-  python main.py full-report --input mock-cluster-graph-copy.json --export json --no-cvss-weights
-  ```
+  # Standard run (Automated CVE fetch + save to report.txt)
+  python main.py full-report --kubectl
 
-### `blast-radius`
-Computes the "Blast Radius" (reachable nodes) from a specific source via BFS.
-- **Flags**:
-  - `--source <id/name>`: (Mandatory) The node to start from.
-  - `--depth <int>`: Max hops (default: 3).
-  - `--no-cvss-weights`: Skip CVSS-based weight adjustment.
-- **Example**:
-  ```bash
-  python main.py blast-radius --kubectl --source "internet" --depth 5 --no-cvss-weights
+  # Full audit saved for machine ingestion
+  python main.py full-report --kubectl --output-json audit.json
   ```
 
 ### `shortest-path`
-Finds the single most dangerous (minimum-weight) path between two nodes using Dijkstra.
-- **Flags**:
-  - `--source <id/name>`: (Mandatory) Starting node.
-  - `--target <id/name>`: (Mandatory) Target node.
-  - `--no-cvss-weights`: Find the shortest path using ONLY literal JSON weights.
+Finds the single most dangerous (minimum-weight) path between two nodes.
 - **Example**:
   ```bash
-  python main.py shortest-path --input mock-cluster-graph-copy.json --source "dev-1" --target "production-db" --no-cvss-weights
-  ```
-
-### `cycles`
-Detects privilege escalation loops where an attacker can cycle through permissions.
-- **Example**:
-  ```bash
-  python main.py cycles --input mock-cluster-graph-copy.json
-  ```
-
-### `critical-node`
-Identifies "chokepoint" nodes via graph surgery. Removing these nodes eliminates the most attack paths.
-- **Flags**:
-  - `--top <int>`: Number of critical nodes to list (default: 5).
-  - `--no-cvss-weights`: Skip CVSS-based weight adjustment during path calculation.
-- **Example**:
-  ```bash
-  python main.py critical-node --kubectl --top 3 --no-cvss-weights
-  ```
-
----
-
-## 🧠 2. Advanced v2.0 Features
-
-### `classify`
-Categorizes attack paths into types like *Privilege Escalation*, *Lateral Movement*, or *Credential Theft*.
-- **Flags**:
-  - `--no-cvss-weights`: Skip CVSS-based weight adjustment.
-- **Example**:
-  ```bash
-  python main.py classify --input mock-cluster-graph-copy.json --no-cvss-weights
+  python main.py shortest-path --kubectl --source "internet" --target "secret-db" --output path.txt
   ```
 
 ### `rbac-audit`
 Identifies dangerous RBAC configurations (wildcards, cluster-admin, etc.).
-- **Flags**:
-  - `--no-cvss-weights`: Skip CVSS-based weight adjustment.
-  - `--output-json <path>`: Save findings to a file.
 - **Example**:
   ```bash
-  python main.py rbac-audit --kubectl --no-cvss-weights
-  ```
-
-### `explain`
-Generates a natural language narrative describing an attack path in plain English.
-- **Flags**:
-  - `--source <id/name>`: (Mandatory) Starting node.
-  - `--target <id/name>`: (Mandatory) Target node.
-  - `--no-cvss-weights`: Skip CVSS-based weight adjustment.
-- **Example**:
-  ```bash
-  python main.py explain --input mock-cluster-graph-copy.json --source "dev-1" --target "production-db" --no-cvss-weights
+  python main.py rbac-audit --kubectl --output rbac-audit.txt
   ```
 
 ### `node-risk`
-Amplifies node risk scores based on "Path Centrality" (how many attack paths pass through them).
-- **Flags**:
-  - `--top <int>`: Number of results to show (default: 10).
-  - `--no-cvss-weights`: Skip CVSS-based weight adjustment.
+Amplifies risk scores based on "Path Centrality" (how many attack paths pass through them).
 - **Example**:
   ```bash
-  python main.py node-risk --input mock-cluster-graph-copy.json --no-cvss-weights
+  python main.py node-risk --kubectl --top 10 --output risk-map.txt
+  ```
+
+### `blast-radius`
+Computes the "Blast Radius" (reachable nodes) from a specific source via BFS.
+- **Example**:
+  ```bash
+  python main.py blast-radius --kubectl --source "internet" --depth 4 -o radius.txt
+  ```
+
+---
+
+## 📦 3. Data & Persistence
+
+### `export-graph`
+Saves the live cluster state (from kubectl) to our transformed JSON format. 
+**Note:** Since `--enrich` is default, this JSON will have NIST CVSS scores baked into it!
+- **Example**:
+  ```bash
+  python main.py export-graph --kubectl --output master-snapshot.json
+  ```
+
+### `export-frontend`
+Generates the specialized `graph-data.json` required by the D3.js web visualizer.
+- **Example**:
+  ```bash
+  python main.py export-frontend --kubectl --output visualizer/graph-data.json
   ```
 
 ### `diff`
-Compares two cluster graph snapshots to identify new/removed nodes, edges, or attack paths.
+Compares two cluster graph snapshots to identify security regressions.
 - **Usage**: `diff <old.json> <new.json>`
 - **Example**:
   ```bash
   python main.py diff baseline.json current.json
   ```
 
----
-
-## 🌐 3. Data & Visualization
-
-### `export-frontend`
-Generates the specialized `graph-data.json` required by the D3.js web visualizer.
-- **Flags**:
-  - `--output <path>`: Default is `visualizer/graph-data.json`.
-  - `--no-cvss-weights`: Export graph with original literal weights.
-- **Example**:
-  ```bash
-  # Step 1: Export
-  python main.py export-frontend --input mock-cluster-graph-copy.json --no-cvss-weights
-  
-  # Step 2: Open browser
-  # Navigate to visualizer/index.html and click "Load Demo Data"
-  ```
-
-### `export-graph`
-Saves the live cluster state (from kubectl) to our **transformed graph JSON** format.
-- **Example**:
-  ```bash
-  python main.py export-graph --kubectl --output my-snapshot.json
-  ```
-
 ### `dump-raw`
-Saves the **original, un-transformed JSON** from `kubectl` (diagnostic use).
-- **Flags**:
-  - `--output <path>`: Default is `raw-k8s-state.json`.
+Queries core resources and dumps the raw, un-transformed JSON for diagnostics.
 - **Example**:
   ```bash
-  python main.py dump-raw --output raw-state.json
-  ```
-
-### `graph-info`
-Provides a high-level summary of the graph (counts, types, connectivity).
-- **Example**:
-  ```bash
-  python main.py graph-info --kubectl
-  ```
-
-### `run-tests`
-Executes the built-in 13-test validation suite to verify algorithmic accuracy.
-- **Example**:
-  ```bash
-  python main.py run-tests
+  python main.py dump-raw --output raw-k8s-state.json
   ```
 
 ---
 
-## 🛠️ Utility Flags (Applied to App)
-- **`--version` / `-v`**: Show tool version.
-- **`--help`**: Show documentation for any specific command.
-  *   *Example:* `python main.py shortest-path --help`
+## 🧪 4. Validation
+Run the built-in test suite to ensure graph algorithms are functioning correctly.
+```bash
+python main.py run-tests
+```

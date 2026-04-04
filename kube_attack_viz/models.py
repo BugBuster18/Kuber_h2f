@@ -21,9 +21,11 @@ class NodeData:
         name: Human-readable name of the resource.
         namespace: Kubernetes namespace the resource belongs to.
         risk_score: Numeric risk score (0.0 - 10.0).
-        is_source: Whether this node is an attack entry point.
         is_sink: Whether this node is a high-value target.
         cves: List of CVE identifiers associated with this node.
+        image: Container image name.
+        likelihood: (New) Probability of exploitation (0-10).
+        impact: (New) Potential damage if compromised (0-10).
     """
 
     id: str
@@ -34,6 +36,9 @@ class NodeData:
     is_source: bool = False
     is_sink: bool = False
     cves: list[str] = field(default_factory=list)
+    image: Optional[str] = None
+    likelihood: Optional[float] = None
+    impact: Optional[float] = None
 
     def to_dict(self) -> dict:
         """Serialize node to dictionary matching the spec schema."""
@@ -51,6 +56,9 @@ class NodeData:
             is_source=bool(data.get("is_source", False)),
             is_sink=bool(data.get("is_sink", False)),
             cves=data.get("cves", []),
+            image=data.get("image"),
+            likelihood=data.get("likelihood"),
+            impact=data.get("impact"),
         )
 
 
