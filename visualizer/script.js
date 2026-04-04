@@ -50,6 +50,7 @@ let nodeGroup      = null;
 let labelGroup     = null;
 let activePathIdx  = null;
 let selectedNode   = null;
+let zoom           = null;
 
 // Sets for efficient lookup
 let attackPathEdges = new Set();
@@ -68,8 +69,13 @@ function initSVG() {
     svg = d3.select('#graph-svg');
 
     // Zoom & pan
-    const zoom = d3.zoom()
+    zoom = d3.zoom()
         .scaleExtent([0.1, 6])
+        .wheelDelta(event => {
+            // NORMALIZATION: Make wheel/trackpad zooming 3x smoother
+            // We reduce the jump size on every scroll tick.
+            return -event.deltaY * (event.deltaMode === 1 ? 0.05 : event.deltaMode === 2 ? 1 : 0.001) * (event.ctrlKey ? 10 : 1);
+        })
         .on('zoom', (event) => {
             gMain.attr('transform', event.transform);
         });
@@ -177,6 +183,11 @@ function initControls() {
         document.getElementById('detail-panel').classList.add('hidden');
         clearHighlight();
     });
+
+    // Zoom Buttons
+    document.getElementById('btn-zoom-in').addEventListener('click', zoomIn);
+    document.getElementById('btn-zoom-out').addEventListener('click', zoomOut);
+    document.getElementById('btn-zoom-reset').addEventListener('click', resetZoom);
 }
 
 // ─── Data Loading ───────────────────────────────────────────────────────────
@@ -438,6 +449,51 @@ function renderGraph(data) {
 
     // Initial visibility
     updateVisibility();
+
+    // Smooth entry: Zoom to fit after a small delay to allow for positioning
+    setTimeout(zoomToFit, 100);
+}
+
+// ─── Smooth Zoom Logic ──────────────────────────────────────────────────────
+
+function zoomIn() {
+    svg.transition()
+        .duration(350)
+        .call(zoom.scaleBy, 1.4);
+}
+
+function zoomOut() {
+    svg.transition()
+        .duration(350)
+        .call(zoom.scaleBy, 0.7);
+}
+
+function resetZoom() {
+    zoomToFit();
+}
+
+function zoomToFit() {
+    if (!graphData || !graphData.nodes) return;
+    
+    const bounds = gMain.node().getBBox();
+    const parent = svg.node();
+    const fullWidth = parent.clientWidth;
+    const fullHeight = parent.clientHeight;
+    
+    const width = bounds.width;
+    const height = bounds.height;
+    const midX = bounds.x + width / 2;
+    const midY = bounds.y + height / 2;
+    
+    if (width === 0 || height === 0) return;
+    
+    const scale = 0.85 / Math.max(width / fullWidth, height / fullHeight);
+    const translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
+
+    svg.transition()
+        .duration(750)
+        .ease(d3.easeCubicInOut)
+        .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
 }
 
 function getNodeRadius(d) {
