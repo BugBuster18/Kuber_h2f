@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: kubeattackviz-neo4j
+    ports:
+      - "7474:7474"  # Neo4j Browser
+      - "7687:7687"  # Bolt protocol
+    environment:
+      - NEO4J_AUTH=neo4j/kubeattackviz
+      - NEO4J_PLUGINS=["apoc"]
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
+  neo4j_logs:

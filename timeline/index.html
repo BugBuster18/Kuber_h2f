@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="KubeAttackViz Timeline — Visualize Kubernetes cluster attack graph changes over time with interactive snapshot diffs">
+    <title>KubeAttackViz — Timeline Visualizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="timeline.css">
+</head>
+<body>
+    <!-- ── Header ──────────────────────────────────────────────────────── -->
+    <header id="app-header">
+        <div class="header-left">
+            <div class="logo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+            </div>
+            <h1 id="app-title">KubeAttackViz</h1>
+            <span class="version-badge">Timeline</span>
+        </div>
+        <div class="header-right">
+            <div class="stat-chip" id="stat-snapshots">
+                <span class="stat-label">Snapshots</span>
+                <span class="stat-value" id="snapshot-count">0</span>
+            </div>
+            <div class="stat-chip stat-warning" id="stat-changes">
+                <span class="stat-label">Total Changes</span>
+                <span class="stat-value" id="total-changes">0</span>
+            </div>
+            <div class="stat-chip" id="stat-current-nodes">
+                <span class="stat-label">Nodes</span>
+                <span class="stat-value" id="current-nodes">0</span>
+            </div>
+            <div class="stat-chip" id="stat-current-edges">
+                <span class="stat-label">Edges</span>
+                <span class="stat-value" id="current-edges">0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ── Main Layout ─────────────────────────────────────────────────── -->
+    <main id="app-main">
+        <!-- Left Sidebar -->
+        <aside id="sidebar">
+            <!-- Data Source -->
+            <section class="panel" id="panel-input">
+                <h2 class="panel-title">📂 Data Source</h2>
+                <div class="file-drop-zone" id="file-drop-zone">
+                    <p>Drop <code>timeline-data.json</code> here</p>
+                    <p class="hint">or click to browse</p>
+                    <input type="file" id="file-input" accept=".json" hidden>
+                </div>
+                <button class="btn btn-primary" id="btn-load-demo">Load Timeline Data</button>
+            </section>
+
+            <!-- Playback Controls -->
+            <section class="panel" id="panel-playback">
+                <h2 class="panel-title">⏯️ Playback Controls</h2>
+                <div class="playback-controls">
+                    <button class="btn-icon" id="btn-prev" title="Previous Snapshot">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                    </button>
+                    <button class="btn-icon btn-play" id="btn-play" title="Auto-Play">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" id="play-icon"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    <button class="btn-icon" id="btn-next" title="Next Snapshot">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 18h2V6h-2zM6 18l8.5-6L6 6z"/></svg>
+                    </button>
+                </div>
+                <div class="speed-control">
+                    <label>Speed</label>
+                    <input type="range" id="playback-speed" min="500" max="5000" value="2000" step="250">
+                    <span id="speed-label">2.0s</span>
+                </div>
+            </section>
+
+            <!-- Display Controls -->
+            <section class="panel" id="panel-controls">
+                <h2 class="panel-title">⚙️ Display</h2>
+                <label class="toggle-row">
+                    <input type="checkbox" id="toggle-labels" checked>
+                    <span class="toggle-label">Node Labels</span>
+                </label>
+                <label class="toggle-row">
+                    <input type="checkbox" id="toggle-diff-overlay" checked>
+                    <span class="toggle-label">Diff Overlay</span>
+                </label>
+                <label class="toggle-row">
+                    <input type="checkbox" id="toggle-animate" checked>
+                    <span class="toggle-label">Animate Transitions</span>
+                </label>
+            </section>
+
+            <!-- Legend -->
+            <section class="panel" id="panel-legend">
+                <h2 class="panel-title">🎨 Legend</h2>
+                <div class="legend-grid">
+                    <div class="legend-item"><span class="legend-dot" style="background:#4A90D9"></span> Pod</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#E8833A"></span> ServiceAccount</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#9B59B6"></span> Role</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#E74C3C"></span> Secret</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#2ECC71"></span> Service</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#8E44AD"></span> ClusterRole</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#F39C12"></span> Namespace</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#95A5A6"></span> Other</div>
+                </div>
+                <div class="legend-grid" style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+                    <div class="legend-item"><span class="legend-dot diff-added"></span> Added</div>
+                    <div class="legend-item"><span class="legend-dot diff-removed"></span> Removed</div>
+                </div>
+            </section>
+
+            <!-- Change Cards -->
+            <section class="panel" id="panel-changes">
+                <h2 class="panel-title">📋 Changes</h2>
+                <div id="changes-list" class="scrollable-list">
+                    <p class="placeholder">Load data to view changes.</p>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Graph Canvas -->
+        <div id="graph-container">
+            <svg id="graph-svg"></svg>
+            <!-- Snapshot Info Overlay -->
+            <div id="snapshot-info" class="snapshot-info hidden">
+                <div class="snapshot-info-badge" id="snapshot-badge">Snapshot 1/1</div>
+                <div class="snapshot-info-label" id="snapshot-label"></div>
+                <div class="snapshot-info-time" id="snapshot-time"></div>
+            </div>
+            <!-- Tooltip -->
+            <div id="tooltip" class="tooltip hidden">
+                <div class="tooltip-header" id="tooltip-name"></div>
+                <div class="tooltip-body">
+                    <div class="tooltip-row"><span class="tooltip-key">Type:</span><span id="tooltip-type"></span></div>
+                    <div class="tooltip-row"><span class="tooltip-key">Namespace:</span><span id="tooltip-namespace"></span></div>
+                    <div class="tooltip-row"><span class="tooltip-key">Risk:</span><span id="tooltip-risk"></span></div>
+                    <div class="tooltip-row"><span class="tooltip-key">Status:</span><span id="tooltip-status"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Detail Panel -->
+        <aside id="detail-panel" class="hidden">
+            <button class="btn-close" id="btn-close-detail">&times;</button>
+            <h2 class="panel-title" id="detail-title">Snapshot Details</h2>
+            <div id="detail-content"></div>
+        </aside>
+    </main>
+
+    <!-- ── Timeline Scrubber ───────────────────────────────────────────── -->
+    <footer id="timeline-footer">
+        <div class="timeline-container">
+            <div class="timeline-track" id="timeline-track">
+                <div class="timeline-progress" id="timeline-progress"></div>
+            </div>
+            <div class="timeline-markers" id="timeline-markers"></div>
+            <div class="timeline-labels" id="timeline-labels"></div>
+        </div>
+    </footer>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="timeline.js"></script>
+</body>
+</html>

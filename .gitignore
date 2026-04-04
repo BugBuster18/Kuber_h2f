@@ -67,6 +67,12 @@ output_test.txt
 # Visualizer generated data
 visualizer/graph-data.json
 
+# Snapshots
+snapshots/
+
+# Timeline generated data
+timeline/timeline-data.json
+
 # IDEs
 .vscode/
 .idea/

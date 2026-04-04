@@ -438,6 +438,210 @@ def cmd_run_tests():
         raise typer.Exit(code=1)
 
 
+# ─── Neo4j + Snapshot + Watcher Commands ─────────────────────────────────────
+
+
+@app.command("neo4j-sync")
+def cmd_neo4j_sync(
+    input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
+    kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    neo4j_uri: str = typer.Option("bolt://localhost:7687", "--neo4j-uri", help="Neo4j URI."),
+    neo4j_user: str = typer.Option("neo4j", "--neo4j-user", help="Neo4j username."),
+    neo4j_password: str = typer.Option("", "--neo4j-password", "-p", help="Neo4j password (or set NEO4J_PASSWORD env)."),
+    snapshot_label: str = typer.Option("", "--label", "-l", help="Optional snapshot label."),
+):
+    """🗄️  Sync attack graph to Neo4j database."""
+    from .neo4j_store import Neo4jStore
+
+    _, cluster = _load_graph(input_file, kubectl)
+
+    store = Neo4jStore(uri=neo4j_uri, user=neo4j_user, password=neo4j_password)
+    try:
+        store.connect()
+        console.print("[green]✓ Connected to Neo4j[/]")
+    except Exception as e:
+        console.print(f"[bold red]❌ Neo4j connection failed:[/] {e}")
+        raise typer.Exit(code=1)
+
+    try:
+        result = store.store_graph(cluster)
+        console.print(
+            f"[bold green]✓ Graph synced to Neo4j:[/] "
+            f"{result['node_count']} nodes, {result['edge_count']} edges"
+        )
+
+        if snapshot_label:
+            ts = store.store_snapshot(cluster, label=snapshot_label)
+            console.print(f"[bold green]✓ Snapshot saved:[/] {ts} ({snapshot_label})")
+    finally:
+        store.close()
+
+
+@app.command("neo4j-load")
+def cmd_neo4j_load(
+    neo4j_uri: str = typer.Option("bolt://localhost:7687", "--neo4j-uri", help="Neo4j URI."),
+    neo4j_user: str = typer.Option("neo4j", "--neo4j-user", help="Neo4j username."),
+    neo4j_password: str = typer.Option("", "--neo4j-password", "-p", help="Neo4j password (or set NEO4J_PASSWORD env)."),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="Export loaded graph to JSON file."),
+    list_snapshots: bool = typer.Option(False, "--list-snapshots", help="List all stored snapshots."),
+):
+    """📥 Load graph from Neo4j or list stored snapshots."""
+    from .neo4j_store import Neo4jStore
+
+    store = Neo4jStore(uri=neo4j_uri, user=neo4j_user, password=neo4j_password)
+    try:
+        store.connect()
+        console.print("[green]✓ Connected to Neo4j[/]")
+    except Exception as e:
+        console.print(f"[bold red]❌ Neo4j connection failed:[/] {e}")
+        raise typer.Exit(code=1)
+
+    try:
+        if list_snapshots:
+            snaps = store.list_snapshots()
+            if not snaps:
+                console.print("[yellow]No snapshots found in Neo4j.[/]")
+            else:
+                console.print(f"\n[bold]📸 Neo4j Snapshots ({len(snaps)}):[/]")
+                for i, s in enumerate(snaps, 1):
+                    console.print(
+                        f"  {i}. [{s['timestamp']}] "
+                        f"{s['label'] or '(unlabeled)'} — "
+                        f"{s['node_count']} nodes, {s['edge_count']} edges"
+                    )
+            return
+
+        cluster = store.load_graph()
+        G = build_attack_graph(cluster)
+        summary = graph_summary(G)
+        console.print(
+            f"[bold green]✓ Graph loaded from Neo4j:[/] "
+            f"{summary['total_nodes']} nodes, {summary['total_edges']} edges"
+        )
+
+        if output:
+            from .ingestion import export_graph_to_json
+            export_graph_to_json(cluster, output)
+            console.print(f"[bold green]✓ Exported to:[/] {output}")
+    finally:
+        store.close()
+
+
+@app.command("watch")
+def cmd_watch(
+    interval: int = typer.Option(30, "--interval", "-t", help="Polling interval in seconds."),
+    snapshots_dir: str = typer.Option("snapshots", "--snapshots-dir", "-d", help="Snapshot directory."),
+    neo4j_uri: str = typer.Option("bolt://localhost:7687", "--neo4j-uri", help="Neo4j URI."),
+    neo4j_user: str = typer.Option("neo4j", "--neo4j-user", help="Neo4j username."),
+    neo4j_password: str = typer.Option("", "--neo4j-password", "-p", help="Neo4j password (optional)."),
+):
+    """👁️  Start live kubectl watcher — auto-detect cluster changes and snapshot."""
+    from .live_watcher import run_watcher_blocking
+
+    run_watcher_blocking(
+        interval=interval,
+        snapshots_dir=snapshots_dir,
+        neo4j_uri=neo4j_uri,
+        neo4j_user=neo4j_user,
+        neo4j_password=neo4j_password or None,
+    )
+
+
+@app.command("snapshot")
+def cmd_snapshot(
+    input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
+    kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    label: str = typer.Option("", "--label", "-l", help="Snapshot label."),
+    snapshots_dir: str = typer.Option("snapshots", "--snapshots-dir", "-d", help="Snapshot directory."),
+    list_all: bool = typer.Option(False, "--list", help="List all saved snapshots."),
+    neo4j_uri: str = typer.Option("bolt://localhost:7687", "--neo4j-uri", help="Neo4j URI."),
+    neo4j_user: str = typer.Option("neo4j", "--neo4j-user", help="Neo4j username."),
+    neo4j_password: str = typer.Option("", "--neo4j-password", "-p", help="Neo4j password (optional)."),
+):
+    """📸 Take a one-off snapshot or list existing snapshots."""
+    from .snapshot_manager import save_snapshot, list_snapshots as ls_snaps
+
+    if list_all:
+        snaps = ls_snaps(snapshots_dir)
+        if not snaps:
+            console.print("[yellow]No snapshots found.[/]")
+        else:
+            console.print(f"\n[bold]📸 Snapshots ({len(snaps)}):[/]")
+            for i, s in enumerate(snaps, 1):
+                console.print(
+                    f"  {i}. [{s['timestamp']}] "
+                    f"{s['label'] or '(unlabeled)'} — "
+                    f"{s['node_count']} nodes, {s['edge_count']} edges "
+                    f"({s['source']})"
+                )
+        return
+
+    _, cluster = _load_graph(input_file, kubectl)
+    source = "kubectl" if kubectl else "json"
+
+    filepath = save_snapshot(
+        cluster,
+        label=label,
+        snapshots_dir=snapshots_dir,
+        source=source,
+    )
+    console.print(f"[bold green]✓ Snapshot saved:[/] {filepath}")
+
+    # Optionally also store in Neo4j
+    if neo4j_password:
+        try:
+            from .neo4j_store import Neo4jStore
+            store = Neo4jStore(uri=neo4j_uri, user=neo4j_user, password=neo4j_password)
+            store.connect()
+            ts = store.store_snapshot(cluster, label=label)
+            console.print(f"[bold green]✓ Neo4j snapshot:[/] {ts}")
+            store.close()
+        except Exception as e:
+            console.print(f"[yellow]⚠ Neo4j snapshot skipped: {e}[/]")
+
+
+@app.command("timeline")
+def cmd_timeline(
+    snapshots_dir: str = typer.Option("snapshots", "--snapshots-dir", "-d", help="Snapshot directory."),
+    output: str = typer.Option("timeline/timeline-data.json", "--output", "-o", help="Output timeline JSON."),
+    serve: bool = typer.Option(False, "--serve", "-s", help="Start HTTP server to view timeline."),
+    port: int = typer.Option(8090, "--port", help="HTTP server port."),
+):
+    """📊 Generate timeline visualizer with snapshot diffs."""
+    from .snapshot_manager import export_timeline_data, list_snapshots as ls_snaps
+
+    snaps = ls_snaps(snapshots_dir)
+    if not snaps:
+        console.print("[yellow]No snapshots found. Take snapshots first with 'snapshot' command.[/]")
+        raise typer.Exit(code=1)
+
+    console.print(f"[bold blue]📊 Generating timeline from {len(snaps)} snapshots...[/]")
+
+    output_path = export_timeline_data(
+        snapshots_dir=snapshots_dir,
+        output_path=output,
+    )
+    console.print(f"[bold green]✓ Timeline data exported:[/] {output_path}")
+    console.print(f"[dim]Open timeline/index.html in a browser to view.[/]")
+
+    if serve:
+        import http.server
+        import socketserver
+
+        timeline_dir = str(Path(output).parent)
+        console.print(f"\n[bold blue]🌐 Serving timeline at http://localhost:{port}[/]")
+        console.print("[dim]Press Ctrl+C to stop...[/]")
+
+        handler = http.server.SimpleHTTPRequestHandler
+        with socketserver.TCPServer(("", port), handler) as httpd:
+            import os
+            os.chdir(timeline_dir)
+            try:
+                httpd.serve_forever()
+            except KeyboardInterrupt:
+                console.print("\n[red]Server stopped.[/]")
+
+
 def version_callback(value: bool):
     if value:
         console.print(f"KubeAttackViz v{__version__}")
