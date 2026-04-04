@@ -57,20 +57,26 @@ def _load_graph(
     input_file: str | None,
     use_kubectl: bool,
     use_cvss: bool = True,
-    enrich: bool = True,
-):
-    """Load and build the attack graph from the specified source.
-
-    Args:
-        input_file: Path to input JSON file.
-        use_kubectl: Whether to use live kubectl ingestion.
-        use_cvss: Whether to apply CVSS weight adjustments.
-        enrich: Whether to fetch live CVSS scores from NVD API.
-
-    Returns:
-        Tuple of (NetworkX DiGraph, ClusterGraph data model).
+    enrich: Optional[bool] = None,
+) -> tuple[nx.DiGraph, ClusterGraph]:
+    """Load and build the attack graph from specified source.
+    
+    Smart Default:
+    - If kubectl is used: Default enrich to TRUE.
+    - If JSON file is used: Default enrich to FALSE (assume already enriched).
     """
-    cluster = ingest_from_json(input_file) if input_file else ingest_from_kubectl()
+    if enrich is None:
+        enrich = True if use_kubectl else False
+
+    if use_kubectl:
+        with console.status("[bold cyan]Querying cluster via kubectl..."):
+            cluster = ingest_from_kubectl()
+    elif input_file:
+        with console.status(f"[bold cyan]Ingesting graph from {input_file}..."):
+            cluster = ingest_from_json(input_file)
+    else:
+        console.print("[bold red]❌ Error:[/] You must provide --input or --kubectl.")
+        raise typer.Exit(code=1)
 
     if enrich:
         count = enrich_cluster_graph(cluster)
@@ -125,7 +131,7 @@ def cmd_blast_radius(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
     use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
-    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled by default)."),
+    enrich: Optional[bool] = typer.Option(None, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled for kubectl, Disabled for JSON)."),
     output_json: Optional[str] = typer.Option(None, "--output-json", help="Export results as JSON."),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Save the report as a text file."),
 ):
@@ -152,7 +158,7 @@ def cmd_shortest_path(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
     use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
-    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled by default)."),
+    enrich: Optional[bool] = typer.Option(None, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled for kubectl, Disabled for JSON)."),
     output_json: Optional[str] = typer.Option(None, "--output-json", help="Export path as JSON."),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Save the path report as a text file."),
 ):
@@ -202,7 +208,7 @@ def cmd_cycles(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
     use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
-    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled by default)."),
+    enrich: Optional[bool] = typer.Option(None, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled for kubectl, Disabled for JSON)."),
     output_json: Optional[str] = typer.Option(None, "--output-json", help="Export results as JSON."),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Save the cycle report as a text file."),
 ):
@@ -236,7 +242,7 @@ def cmd_critical_node(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
     use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
-    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled by default)."),
+    enrich: Optional[bool] = typer.Option(None, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled for kubectl, Disabled for JSON)."),
     top_n: int = typer.Option(5, "--top", "-n", help="Number of top critical nodes."),
     output_json: Optional[str] = typer.Option(None, "--output-json", help="Export results as JSON."),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Save the critical node report as a text file."),
@@ -276,7 +282,7 @@ def cmd_full_report(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
     use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
-    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled by default)."),
+    enrich: Optional[bool] = typer.Option(None, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled for kubectl, Disabled for JSON)."),
     blast_source: Optional[str] = typer.Option(None, "--blast-source", help="Specific source for blast radius."),
     blast_depth: int = typer.Option(3, "--blast-depth", help="Max BFS depth for blast radius."),
     output_json: Optional[str] = typer.Option(None, "--output-json", help="Export full JSON report."),
@@ -379,7 +385,7 @@ def cmd_classify(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
     use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
-    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled by default)."),
+    enrich: Optional[bool] = typer.Option(None, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled for kubectl, Disabled for JSON)."),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Save the classification report as a text file."),
 ):
     """🏷️  Classify attack paths into categories with advanced scoring."""
@@ -397,7 +403,7 @@ def cmd_rbac_audit(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
     use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
-    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled by default)."),
+    enrich: Optional[bool] = typer.Option(None, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled for kubectl, Disabled for JSON)."),
     output_json: Optional[str] = typer.Option(None, "--output-json", help="Export RBAC findings as JSON."),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Save the RBAC audit report as a text file."),
 ):
@@ -423,7 +429,7 @@ def cmd_explain(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
     use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
-    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled by default)."),
+    enrich: Optional[bool] = typer.Option(None, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled for kubectl, Disabled for JSON)."),
 ):
     """📝 Generate natural language explanation of an attack path."""
     from .nlp_explainer import explain_path
@@ -452,7 +458,7 @@ def cmd_node_risk(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
     use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
-    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled by default)."),
+    enrich: Optional[bool] = typer.Option(None, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled for kubectl, Disabled for JSON)."),
     top_n: int = typer.Option(10, "--top", "-n", help="Number of top nodes to display."),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Save the node risk report as a text file."),
 ):
@@ -471,7 +477,7 @@ def cmd_export_frontend(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
     use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
-    enrich: bool = typer.Option(True, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled by default)."),
+    enrich: Optional[bool] = typer.Option(None, "--enrich/--no-enrich", help="Fetch live CVSS scores from NVD (Enabled for kubectl, Disabled for JSON)."),
     output: str = typer.Option("visualizer/graph-data.json", "--output", "-o", help="Output JSON for frontend."),
 ):
     """🌐 Export graph data for the D3.js visualization frontend."""
