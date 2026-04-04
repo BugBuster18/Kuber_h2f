@@ -1,32 +1,12 @@
 {
   "metadata": {
-    "cluster": "kind-k8s-attack-lab",
-    "generated": "2026-04-04",
-    "node_count": 58,
-    "edge_count": 88,
+    "cluster": "kind-newcluster",
+    "generated": "2026-04-05",
+    "node_count": 18,
+    "edge_count": 12,
     "description": "Auto-generated cluster graph from live Kubernetes data"
   },
   "nodes": [
-    {
-      "id": "ns-backend",
-      "type": "Namespace",
-      "name": "backend",
-      "namespace": "cluster",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "ns-data",
-      "type": "Namespace",
-      "name": "data",
-      "namespace": "cluster",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
     {
       "id": "ns-default",
       "type": "Namespace",
@@ -38,273 +18,68 @@
       "cves": []
     },
     {
-      "id": "ns-frontend",
-      "type": "Namespace",
-      "name": "frontend",
+      "id": "node-newcluster-control-plane",
+      "type": "Node",
+      "name": "newcluster-control-plane",
       "namespace": "cluster",
+      "risk_score": 9.0,
+      "is_source": false,
+      "is_sink": true,
+      "cves": []
+    },
+    {
+      "id": "node-newcluster-worker",
+      "type": "Node",
+      "name": "newcluster-worker",
+      "namespace": "cluster",
+      "risk_score": 9.0,
+      "is_source": false,
+      "is_sink": true,
+      "cves": []
+    },
+    {
+      "id": "pod-backend-7f5d966cb-2zt8f",
+      "type": "Pod",
+      "name": "backend-7f5d966cb-2zt8f",
+      "namespace": "default",
+      "risk_score": 6.5,
+      "is_source": false,
+      "is_sink": false,
+      "cves": [
+        "CVE-2023-41053",
+        "CVE-2023-45145",
+        "CVE-2023-41056",
+        "CVE-2024-31227",
+        "CVE-2024-31228"
+      ]
+    },
+    {
+      "id": "pod-frontend-68457cd5d9-5hgjq",
+      "type": "Pod",
+      "name": "frontend-68457cd5d9-5hgjq",
+      "namespace": "default",
       "risk_score": 4.0,
       "is_source": false,
       "is_sink": false,
       "cves": []
-    },
-    {
-      "id": "ns-monitoring",
-      "type": "Namespace",
-      "name": "monitoring",
-      "namespace": "cluster",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "ns-security-test",
-      "type": "Namespace",
-      "name": "security-test",
-      "namespace": "cluster",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "node-k8s-attack-lab-control-plane",
-      "type": "Node",
-      "name": "k8s-attack-lab-control-plane",
-      "namespace": "cluster",
-      "risk_score": 9.0,
-      "is_source": false,
-      "is_sink": true,
-      "cves": []
-    },
-    {
-      "id": "node-k8s-attack-lab-worker",
-      "type": "Node",
-      "name": "k8s-attack-lab-worker",
-      "namespace": "cluster",
-      "risk_score": 9.0,
-      "is_source": false,
-      "is_sink": true,
-      "cves": []
-    },
-    {
-      "id": "node-k8s-attack-lab-worker2",
-      "type": "Node",
-      "name": "k8s-attack-lab-worker2",
-      "namespace": "cluster",
-      "risk_score": 9.0,
-      "is_source": false,
-      "is_sink": true,
-      "cves": []
-    },
-    {
-      "id": "node-k8s-attack-lab-worker3",
-      "type": "Node",
-      "name": "k8s-attack-lab-worker3",
-      "namespace": "cluster",
-      "risk_score": 9.0,
-      "is_source": false,
-      "is_sink": true,
-      "cves": []
-    },
-    {
-      "id": "pod-backend-api-5fbff55f44-8wtb2",
-      "type": "Pod",
-      "name": "backend-api-5fbff55f44-8wtb2",
-      "namespace": "backend",
-      "risk_score": 7.8,
-      "is_source": false,
-      "is_sink": false,
-      "cves": [
-        "CVE-2023-5678",
-        "CVE-2021-22918",
-        "CVE-2021-22921",
-        "CVE-2021-22931",
-        "CVE-2021-22940",
-        "CVE-2021-22930",
-        "CVE-2021-44531",
-        "CVE-2021-44532",
-        "CVE-2021-44533",
-        "CVE-2022-29247",
-        "CVE-2022-36313",
-        "CVE-2022-29965",
-        "CVE-2023-32006",
-        "CVE-2023-32002",
-        "CVE-2023-32559",
-        "CVE-2023-48681",
-        "CVE-2024-35931",
-        "CVE-2021-47510",
-        "CVE-2024-46797",
-        "CVE-2024-56703",
-        "CVE-2022-49613",
-        "CVE-2025-21717",
-        "CVE-2025-22075",
-        "CVE-2025-37931",
-        "CVE-2025-55152",
-        "CVE-2025-58047",
-        "CVE-2025-59472",
-        "CVE-2026-31832"
-      ]
-    },
-    {
-      "id": "pod-webapp-7b8c6c4466-qtzkr",
-      "type": "Pod",
-      "name": "webapp-7b8c6c4466-qtzkr",
-      "namespace": "backend",
-      "risk_score": 7.8,
-      "is_source": false,
-      "is_sink": false,
-      "cves": [
-        "CVE-2024-9012",
-        "CVE-2021-32052",
-        "CVE-2021-3426",
-        "CVE-2021-33571",
-        "CVE-2022-0391",
-        "CVE-2022-26488",
-        "CVE-2015-20107",
-        "CVE-2022-42919",
-        "CVE-2022-45061",
-        "CVE-2023-26052",
-        "CVE-2022-48560",
-        "CVE-2022-48564",
-        "CVE-2022-48565",
-        "CVE-2022-48566",
-        "CVE-2023-40217",
-        "CVE-2023-49082",
-        "CVE-2023-49081",
-        "CVE-2024-23334",
-        "CVE-2024-23829",
-        "CVE-2024-27306",
-        "CVE-2024-30251",
-        "CVE-2026-33230",
-        "CVE-2026-33231",
-        "CVE-2026-33236",
-        "CVE-2026-33332"
-      ]
-    },
-    {
-      "id": "pod-production-db-68457b7489-zbjnc",
-      "type": "Pod",
-      "name": "production-db-68457b7489-zbjnc",
-      "namespace": "data",
-      "risk_score": 7.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": [
-        "CVE-2016-1255",
-        "CVE-2020-25694",
-        "CVE-2020-25695",
-        "CVE-2020-25696",
-        "CVE-2021-20229",
-        "CVE-2021-3393",
-        "CVE-2021-32027",
-        "CVE-2023-31043",
-        "CVE-2023-41113",
-        "CVE-2023-41114",
-        "CVE-2023-41115",
-        "CVE-2023-41116",
-        "CVE-2023-41117",
-        "CVE-2023-41118",
-        "CVE-2023-41119",
-        "CVE-2023-41120",
-        "CVE-2024-0985",
-        "CVE-2024-7348",
-        "CVE-2024-10976",
-        "CVE-2024-10977",
-        "CVE-2024-10978",
-        "CVE-2024-10979",
-        "CVE-2025-1094",
-        "CVE-2025-4207",
-        "CVE-2025-8713",
-        "CVE-2025-8714",
-        "CVE-2025-8715",
-        "CVE-2025-12817",
-        "CVE-2025-12818"
-      ]
-    },
-    {
-      "id": "pod-frontend-web-7d6685bb7-jd54v",
-      "type": "Pod",
-      "name": "frontend-web-7d6685bb7-jd54v",
-      "namespace": "frontend",
-      "risk_score": 5.1,
-      "is_source": false,
-      "is_sink": false,
-      "cves": [
-        "CVE-2024-1234"
-      ]
-    },
-    {
-      "id": "pod-monitor-agent-56fddffd8c-42n4j",
-      "type": "Pod",
-      "name": "monitor-agent-56fddffd8c-42n4j",
-      "namespace": "monitoring",
-      "risk_score": 4.2,
-      "is_source": false,
-      "is_sink": false,
-      "cves": [
-        "CVE-2023-3456"
-      ]
-    },
-    {
-      "id": "pod-service-a-7dc97db87-zxpxm",
-      "type": "Pod",
-      "name": "service-a-7dc97db87-zxpxm",
-      "namespace": "security-test",
-      "risk_score": 6.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": [
-        "CVE-2022-31182",
-        "CVE-2024-24827",
-        "CVE-2024-53991",
-        "CVE-2024-47056",
-        "CVE-2025-54571"
-      ]
-    },
-    {
-      "id": "pod-service-b-7bbb6b44f5-hwt6v",
-      "type": "Pod",
-      "name": "service-b-7bbb6b44f5-hwt6v",
-      "namespace": "security-test",
-      "risk_score": 6.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": [
-        "CVE-2022-31182",
-        "CVE-2024-24827",
-        "CVE-2024-53991",
-        "CVE-2024-47056",
-        "CVE-2025-54571"
-      ]
     },
     {
       "id": "svc-backend-svc",
       "type": "Service",
       "name": "backend-svc",
-      "namespace": "backend",
-      "risk_score": 4.0,
-      "is_source": false,
+      "namespace": "default",
+      "risk_score": 6.5,
+      "is_source": true,
       "is_sink": false,
       "cves": []
     },
     {
-      "id": "svc-webapp-svc",
+      "id": "svc-frontend-svc",
       "type": "Service",
-      "name": "webapp-svc",
-      "namespace": "backend",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "svc-postgres-svc",
-      "type": "Service",
-      "name": "postgres-svc",
-      "namespace": "data",
-      "risk_score": 4.0,
-      "is_source": false,
+      "name": "frontend-svc",
+      "namespace": "default",
+      "risk_score": 6.5,
+      "is_source": true,
       "is_sink": false,
       "cves": []
     },
@@ -319,291 +94,41 @@
       "cves": []
     },
     {
-      "id": "svc-frontend-svc",
-      "type": "Service",
-      "name": "frontend-svc",
-      "namespace": "frontend",
-      "risk_score": 7.5,
-      "is_source": true,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "svc-monitor-svc",
-      "type": "Service",
-      "name": "monitor-svc",
-      "namespace": "monitoring",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "deploy-backend-api",
+      "id": "deploy-backend",
       "type": "Deployment",
-      "name": "backend-api",
-      "namespace": "backend",
+      "name": "backend",
+      "namespace": "default",
       "risk_score": 4.0,
       "is_source": false,
       "is_sink": false,
       "cves": []
     },
     {
-      "id": "deploy-webapp",
+      "id": "deploy-frontend",
       "type": "Deployment",
-      "name": "webapp",
-      "namespace": "backend",
+      "name": "frontend",
+      "namespace": "default",
       "risk_score": 4.0,
       "is_source": false,
       "is_sink": false,
       "cves": []
     },
     {
-      "id": "deploy-production-db",
-      "type": "Deployment",
-      "name": "production-db",
-      "namespace": "data",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "deploy-frontend-web",
-      "type": "Deployment",
-      "name": "frontend-web",
-      "namespace": "frontend",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "deploy-monitor-agent",
-      "type": "Deployment",
-      "name": "monitor-agent",
-      "namespace": "monitoring",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "deploy-service-a",
-      "type": "Deployment",
-      "name": "service-a",
-      "namespace": "security-test",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "deploy-service-b",
-      "type": "Deployment",
-      "name": "service-b",
-      "namespace": "security-test",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "sa-sa-backend",
-      "type": "ServiceAccount",
-      "name": "sa-backend",
-      "namespace": "backend",
-      "risk_score": 7.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "sa-sa-webapp",
-      "type": "ServiceAccount",
-      "name": "sa-webapp",
-      "namespace": "backend",
-      "risk_score": 5.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "sa-sa-db-job",
-      "type": "ServiceAccount",
-      "name": "sa-db-job",
-      "namespace": "data",
-      "risk_score": 9.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "sa-sa-frontend",
-      "type": "ServiceAccount",
-      "name": "sa-frontend",
-      "namespace": "frontend",
-      "risk_score": 7.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "sa-sa-monitor",
-      "type": "ServiceAccount",
-      "name": "sa-monitor",
-      "namespace": "monitoring",
-      "risk_score": 5.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "sa-sa-service-a",
-      "type": "ServiceAccount",
-      "name": "sa-service-a",
-      "namespace": "security-test",
-      "risk_score": 7.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "sa-sa-service-b",
-      "type": "ServiceAccount",
-      "name": "sa-service-b",
-      "namespace": "security-test",
-      "risk_score": 7.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "secret-secret-internal-token",
-      "type": "Secret",
-      "name": "secret-internal-token",
-      "namespace": "backend",
-      "risk_score": 8.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "secret-secret-api-keys",
-      "type": "Secret",
-      "name": "secret-api-keys",
-      "namespace": "data",
-      "risk_score": 9.5,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "secret-secret-db-credentials",
-      "type": "Secret",
-      "name": "secret-db-credentials",
-      "namespace": "data",
-      "risk_score": 9.5,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "secret-secret-monitor-creds",
-      "type": "Secret",
-      "name": "secret-monitor-creds",
-      "namespace": "monitoring",
-      "risk_score": 8.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "cm-cm-backend-config",
+      "id": "cm-frontend-config",
       "type": "ConfigMap",
-      "name": "cm-backend-config",
-      "namespace": "backend",
-      "risk_score": 5.5,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "cm-cm-db-config",
-      "type": "ConfigMap",
-      "name": "cm-db-config",
-      "namespace": "data",
+      "name": "frontend-config",
+      "namespace": "default",
       "risk_score": 3.0,
       "is_source": false,
       "is_sink": false,
       "cves": []
     },
     {
-      "id": "cm-cm-frontend-config",
-      "type": "ConfigMap",
-      "name": "cm-frontend-config",
-      "namespace": "frontend",
-      "risk_score": 3.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "role-role-configmap-admin",
+      "id": "role-pod-reader",
       "type": "Role",
-      "name": "role-configmap-admin",
-      "namespace": "backend",
-      "risk_score": 4.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "role-role-pod-exec",
-      "type": "Role",
-      "name": "role-pod-exec",
-      "namespace": "backend",
-      "risk_score": 8.5,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "role-role-data-admin",
-      "type": "Role",
-      "name": "role-data-admin",
-      "namespace": "data",
-      "risk_score": 10.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "role-role-secret-reader",
-      "type": "Role",
-      "name": "role-secret-reader",
-      "namespace": "data",
-      "risk_score": 7.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "role-role-service-a-admin",
-      "type": "Role",
-      "name": "role-service-a-admin",
-      "namespace": "security-test",
-      "risk_score": 10.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "role-role-service-b-admin",
-      "type": "Role",
-      "name": "role-service-b-admin",
-      "namespace": "security-test",
-      "risk_score": 10.0,
+      "name": "pod-reader",
+      "namespace": "default",
+      "risk_score": 5.0,
       "is_source": false,
       "is_sink": false,
       "cves": []
@@ -624,26 +149,6 @@
       "name": "cluster-admin",
       "namespace": "cluster",
       "risk_score": 10.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "cr-cr-cluster-reader",
-      "type": "ClusterRole",
-      "name": "cr-cluster-reader",
-      "namespace": "cluster",
-      "risk_score": 7.0,
-      "is_source": false,
-      "is_sink": false,
-      "cves": []
-    },
-    {
-      "id": "cr-cr-node-reader",
-      "type": "ClusterRole",
-      "name": "cr-node-reader",
-      "namespace": "cluster",
-      "risk_score": 3.0,
       "is_source": false,
       "is_sink": false,
       "cves": []
@@ -691,120 +196,24 @@
   ],
   "edges": [
     {
-      "source": "pod-backend-api-5fbff55f44-8wtb2",
-      "target": "sa-sa-backend",
-      "relationship": "uses",
-      "weight": 3.0,
-      "cve": "CVE-2021-22931",
-      "cvss": 9.8
-    },
-    {
-      "source": "pod-webapp-7b8c6c4466-qtzkr",
-      "target": "sa-sa-webapp",
-      "relationship": "uses",
-      "weight": 3.0,
-      "cve": "CVE-2022-48565",
-      "cvss": 9.8
-    },
-    {
-      "source": "pod-production-db-68457b7489-zbjnc",
-      "target": "sa-sa-db-job",
-      "relationship": "uses",
-      "weight": 3.0,
-      "cve": "CVE-2020-25695",
-      "cvss": 8.8
-    },
-    {
-      "source": "pod-frontend-web-7d6685bb7-jd54v",
-      "target": "sa-sa-frontend",
-      "relationship": "uses",
-      "weight": 3.0,
-      "cve": "CVE-2024-1234",
-      "cvss": 6.4
-    },
-    {
-      "source": "pod-monitor-agent-56fddffd8c-42n4j",
-      "target": "sa-sa-monitor",
-      "relationship": "uses",
-      "weight": 3.0,
-      "cve": "CVE-2023-3456",
-      "cvss": 5.3
-    },
-    {
-      "source": "pod-service-a-7dc97db87-zxpxm",
-      "target": "sa-sa-service-a",
-      "relationship": "uses",
-      "weight": 3.0,
-      "cve": "CVE-2024-53991",
-      "cvss": 7.5
-    },
-    {
-      "source": "pod-service-b-7bbb6b44f5-hwt6v",
-      "target": "sa-sa-service-b",
-      "relationship": "uses",
-      "weight": 3.0,
-      "cve": "CVE-2024-53991",
-      "cvss": 7.5
-    },
-    {
-      "source": "pod-production-db-68457b7489-zbjnc",
-      "target": "secret-secret-db-credentials",
+      "source": "pod-frontend-68457cd5d9-5hgjq",
+      "target": "cm-frontend-config",
       "relationship": "reads",
-      "weight": 3.5,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "pod-backend-api-5fbff55f44-8wtb2",
-      "target": "node-k8s-attack-lab-worker2",
-      "relationship": "scheduled-on",
       "weight": 2.0,
       "cve": null,
       "cvss": null
     },
     {
-      "source": "pod-webapp-7b8c6c4466-qtzkr",
-      "target": "node-k8s-attack-lab-worker",
+      "source": "pod-backend-7f5d966cb-2zt8f",
+      "target": "node-newcluster-worker",
       "relationship": "scheduled-on",
       "weight": 2.0,
-      "cve": null,
-      "cvss": null
+      "cve": "CVE-2023-41056",
+      "cvss": 8.1
     },
     {
-      "source": "pod-production-db-68457b7489-zbjnc",
-      "target": "node-k8s-attack-lab-worker3",
-      "relationship": "scheduled-on",
-      "weight": 2.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "pod-frontend-web-7d6685bb7-jd54v",
-      "target": "node-k8s-attack-lab-worker",
-      "relationship": "scheduled-on",
-      "weight": 2.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "pod-monitor-agent-56fddffd8c-42n4j",
-      "target": "node-k8s-attack-lab-worker",
-      "relationship": "scheduled-on",
-      "weight": 2.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "pod-service-a-7dc97db87-zxpxm",
-      "target": "node-k8s-attack-lab-worker2",
-      "relationship": "scheduled-on",
-      "weight": 2.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "pod-service-b-7bbb6b44f5-hwt6v",
-      "target": "node-k8s-attack-lab-worker3",
+      "source": "pod-frontend-68457cd5d9-5hgjq",
+      "target": "node-newcluster-worker",
       "relationship": "scheduled-on",
       "weight": 2.0,
       "cve": null,
@@ -812,343 +221,39 @@
     },
     {
       "source": "svc-backend-svc",
-      "target": "pod-backend-api-5fbff55f44-8wtb2",
+      "target": "pod-backend-7f5d966cb-2zt8f",
       "relationship": "routes-to",
       "weight": 3.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "svc-webapp-svc",
-      "target": "pod-webapp-7b8c6c4466-qtzkr",
-      "relationship": "routes-to",
-      "weight": 3.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "svc-postgres-svc",
-      "target": "pod-production-db-68457b7489-zbjnc",
-      "relationship": "routes-to",
-      "weight": 3.0,
-      "cve": null,
-      "cvss": null
+      "cve": "CVE-2023-41056",
+      "cvss": 8.1
     },
     {
       "source": "svc-frontend-svc",
-      "target": "pod-frontend-web-7d6685bb7-jd54v",
+      "target": "pod-frontend-68457cd5d9-5hgjq",
       "relationship": "routes-to",
       "weight": 3.0,
       "cve": null,
       "cvss": null
     },
     {
-      "source": "svc-monitor-svc",
-      "target": "pod-monitor-agent-56fddffd8c-42n4j",
-      "relationship": "routes-to",
-      "weight": 3.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "deploy-backend-api",
-      "target": "pod-backend-api-5fbff55f44-8wtb2",
+      "source": "deploy-backend",
+      "target": "pod-backend-7f5d966cb-2zt8f",
       "relationship": "creates",
       "weight": 2.0,
-      "cve": null,
-      "cvss": null
+      "cve": "CVE-2023-41056",
+      "cvss": 8.1
     },
     {
-      "source": "deploy-webapp",
-      "target": "pod-webapp-7b8c6c4466-qtzkr",
+      "source": "deploy-frontend",
+      "target": "pod-frontend-68457cd5d9-5hgjq",
       "relationship": "creates",
       "weight": 2.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "deploy-production-db",
-      "target": "pod-production-db-68457b7489-zbjnc",
-      "relationship": "creates",
-      "weight": 2.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "deploy-frontend-web",
-      "target": "pod-frontend-web-7d6685bb7-jd54v",
-      "relationship": "creates",
-      "weight": 2.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "deploy-monitor-agent",
-      "target": "pod-monitor-agent-56fddffd8c-42n4j",
-      "relationship": "creates",
-      "weight": 2.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "deploy-service-a",
-      "target": "pod-service-a-7dc97db87-zxpxm",
-      "relationship": "creates",
-      "weight": 2.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "deploy-service-b",
-      "target": "pod-service-b-7bbb6b44f5-hwt6v",
-      "relationship": "creates",
-      "weight": 2.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "sa-sa-backend",
-      "target": "role-role-pod-exec",
-      "relationship": "bound-to",
-      "weight": 7.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "sa-sa-webapp",
-      "target": "role-role-configmap-admin",
-      "relationship": "bound-to",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "sa-sa-backend",
-      "target": "role-role-secret-reader",
-      "relationship": "bound-to",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "sa-sa-frontend",
-      "target": "role-role-secret-reader",
-      "relationship": "bound-to",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "sa-sa-webapp",
-      "target": "role-role-data-admin",
-      "relationship": "bound-to",
-      "weight": 7.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "sa-sa-service-a",
-      "target": "role-role-service-a-admin",
-      "relationship": "bound-to",
-      "weight": 7.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "sa-sa-service-b",
-      "target": "role-role-service-b-admin",
-      "relationship": "bound-to",
-      "weight": 7.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "sa-sa-monitor",
-      "target": "cr-cr-cluster-reader",
-      "relationship": "bound-to",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "role-role-configmap-admin",
-      "target": "cm-cm-backend-config",
-      "relationship": "can-read",
-      "weight": 3.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "role-role-pod-exec",
-      "target": "node-k8s-attack-lab-control-plane",
-      "relationship": "can-exec-on",
-      "weight": 7.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "role-role-pod-exec",
-      "target": "node-k8s-attack-lab-worker",
-      "relationship": "can-exec-on",
-      "weight": 7.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "role-role-pod-exec",
-      "target": "node-k8s-attack-lab-worker2",
-      "relationship": "can-exec-on",
-      "weight": 7.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "role-role-pod-exec",
-      "target": "node-k8s-attack-lab-worker3",
-      "relationship": "can-exec-on",
-      "weight": 7.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "role-role-secret-reader",
-      "target": "secret-secret-api-keys",
-      "relationship": "can-read",
-      "weight": 5.5,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "role-role-secret-reader",
-      "target": "secret-secret-db-credentials",
-      "relationship": "can-read",
-      "weight": 5.5,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-admin",
-      "target": "secret-secret-internal-token",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-admin",
-      "target": "secret-secret-api-keys",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-admin",
-      "target": "secret-secret-db-credentials",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-admin",
-      "target": "secret-secret-monitor-creds",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-admin",
-      "target": "ns-backend",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-admin",
-      "target": "ns-data",
-      "relationship": "admin-over",
-      "weight": 6.0,
       "cve": null,
       "cvss": null
     },
     {
       "source": "cr-admin",
       "target": "ns-default",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-admin",
-      "target": "ns-frontend",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-admin",
-      "target": "ns-monitoring",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-admin",
-      "target": "ns-security-test",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cluster-admin",
-      "target": "secret-secret-internal-token",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cluster-admin",
-      "target": "secret-secret-api-keys",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cluster-admin",
-      "target": "secret-secret-db-credentials",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cluster-admin",
-      "target": "secret-secret-monitor-creds",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cluster-admin",
-      "target": "ns-backend",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cluster-admin",
-      "target": "ns-data",
       "relationship": "admin-over",
       "weight": 6.0,
       "cve": null,
@@ -1163,152 +268,8 @@
       "cvss": null
     },
     {
-      "source": "cr-cluster-admin",
-      "target": "ns-frontend",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cluster-admin",
-      "target": "ns-monitoring",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cluster-admin",
-      "target": "ns-security-test",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cr-cluster-reader",
-      "target": "secret-secret-internal-token",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cr-cluster-reader",
-      "target": "secret-secret-api-keys",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cr-cluster-reader",
-      "target": "secret-secret-db-credentials",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-cr-cluster-reader",
-      "target": "secret-secret-monitor-creds",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-edit",
-      "target": "secret-secret-internal-token",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-edit",
-      "target": "secret-secret-api-keys",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-edit",
-      "target": "secret-secret-db-credentials",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-edit",
-      "target": "secret-secret-monitor-creds",
-      "relationship": "can-read",
-      "weight": 5.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-edit",
-      "target": "ns-backend",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-edit",
-      "target": "ns-data",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
       "source": "cr-edit",
       "target": "ns-default",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-edit",
-      "target": "ns-frontend",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-edit",
-      "target": "ns-monitoring",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-edit",
-      "target": "ns-security-test",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-kindnet",
-      "target": "ns-backend",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-kindnet",
-      "target": "ns-data",
       "relationship": "admin-over",
       "weight": 6.0,
       "cve": null,
@@ -1323,72 +284,8 @@
       "cvss": null
     },
     {
-      "source": "cr-kindnet",
-      "target": "ns-frontend",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-kindnet",
-      "target": "ns-monitoring",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-kindnet",
-      "target": "ns-security-test",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-view",
-      "target": "ns-backend",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-view",
-      "target": "ns-data",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
       "source": "cr-view",
       "target": "ns-default",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-view",
-      "target": "ns-frontend",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-view",
-      "target": "ns-monitoring",
-      "relationship": "admin-over",
-      "weight": 6.0,
-      "cve": null,
-      "cvss": null
-    },
-    {
-      "source": "cr-view",
-      "target": "ns-security-test",
       "relationship": "admin-over",
       "weight": 6.0,
       "cve": null,

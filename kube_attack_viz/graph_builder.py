@@ -12,7 +12,7 @@ import networkx as nx
 from .models import ClusterGraph, NodeData, EdgeData
 
 
-def build_attack_graph(cluster: ClusterGraph) -> nx.DiGraph:
+def build_attack_graph(cluster: ClusterGraph, use_cvss_weights: bool = True) -> nx.DiGraph:
     """Construct a NetworkX directed graph from parsed cluster data.
 
     Ensures:
@@ -23,6 +23,7 @@ def build_attack_graph(cluster: ClusterGraph) -> nx.DiGraph:
 
     Args:
         cluster: Parsed ClusterGraph containing nodes and edges.
+        use_cvss_weights: Whether to reduce edge weights based on CVSS scores.
 
     Returns:
         NetworkX DiGraph ready for algorithmic analysis.
@@ -62,11 +63,22 @@ def build_attack_graph(cluster: ClusterGraph) -> nx.DiGraph:
             continue
         seen_edges.add(edge_key)
 
+        # Dynamic Weight Adjustment:
+        # Lower weight = Easier path for Dijkstra.
+        base_cost = float(edge.weight)
+        effective_cost = base_cost
+
+        if use_cvss_weights and edge.cvss is not None:
+            # Formula: weight reduced by CVSS percentage.
+            reduction = edge.cvss / 10.0
+            effective_cost = max(0.1, base_cost * (1.0 - reduction))
+
         G.add_edge(
             edge.source,
             edge.target,
             relationship=edge.relationship,
-            weight=edge.weight,
+            weight=effective_cost,
+            base_cost=base_cost,  # preserved for auditing
             cve=edge.cve,
             cvss=edge.cvss,
         )

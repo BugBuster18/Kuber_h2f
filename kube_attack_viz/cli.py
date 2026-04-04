@@ -19,7 +19,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from . import __version__
-from .ingestion import ingest_from_json, ingest_from_kubectl, export_graph_to_json
+from .ingestion import ingest_from_json, ingest_from_kubectl, export_graph_to_json, dump_raw_kubernetes_state
 from .graph_builder import build_attack_graph, resolve_node_id, get_node_name, graph_summary
 from .algorithms.bfs import blast_radius, format_blast_radius
 from .algorithms.dijkstra import (
@@ -47,33 +47,26 @@ app = typer.Typer(
 console = Console()
 
 
-def _load_graph(input_file: str | None, use_kubectl: bool):
+def _load_graph(input_file: str | None, use_kubectl: bool, use_cvss: bool = True):
     """Load and build the attack graph from the specified source.
 
     Args:
         input_file: Path to input JSON file.
         use_kubectl: Whether to use live kubectl ingestion.
+        use_cvss: Whether to apply CVSS weight adjustments.
 
     Returns:
         Tuple of (NetworkX DiGraph, ClusterGraph data model).
     """
-    if input_file:
-        console.print(f"[bold blue]📂 Loading graph from:[/] {input_file}")
-        cluster = ingest_from_json(input_file)
-    elif use_kubectl:
-        console.print("[bold blue]🔗 Ingesting from live Kubernetes cluster via kubectl...[/]")
-        cluster = ingest_from_kubectl()
-    else:
-        console.print("[bold red]❌ Error:[/] Provide --input <file> or --kubectl flag.")
-        raise typer.Exit(code=1)
-
-    G = build_attack_graph(cluster)
+    cluster = ingest_from_json(input_file) if input_file else ingest_from_kubectl()
+    G = build_attack_graph(cluster, use_cvss_weights=use_cvss)
+    
     summary = graph_summary(G)
-    console.print(
-        f"[bold green]✓[/] Graph loaded: "
-        f"{summary['total_nodes']} nodes, {summary['total_edges']} edges, "
-        f"{summary['source_nodes']} sources, {summary['sink_nodes']} sinks"
-    )
+    msg = f"Graph loaded: {summary['total_nodes']} nodes, {summary['total_edges']} edges"
+    if not use_cvss:
+        msg += " [bold yellow](CVSS WEIGHTS DISABLED)[/]"
+    console.print(f"[bold green]✓[/] {msg}")
+    
     return G, cluster
 
 
@@ -98,10 +91,11 @@ def cmd_blast_radius(
     depth: int = typer.Option(3, "--depth", "-d", help="Maximum BFS depth."),
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
     output_json: Optional[str] = typer.Option(None, "--output-json", "-o", help="Export results as JSON."),
 ):
     """🔥 Compute blast radius from a source node using BFS."""
-    G, _ = _load_graph(input_file, kubectl)
+    G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss)
     source_id = _resolve_or_exit(G, source, "Source node")
 
     result = blast_radius(G, source_id, max_depth=depth)
@@ -119,10 +113,11 @@ def cmd_shortest_path(
     target: str = typer.Option(..., "--target", "-t", help="Target node ID or name."),
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
     output_json: Optional[str] = typer.Option(None, "--output-json", "-o", help="Export results as JSON."),
 ):
     """🎯 Find the shortest (minimum-weight) attack path using Dijkstra."""
-    G, _ = _load_graph(input_file, kubectl)
+    G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss)
     source_id = _resolve_or_exit(G, source, "Source node")
     target_id = _resolve_or_exit(G, target, "Target node")
 
@@ -162,10 +157,11 @@ def cmd_shortest_path(
 def cmd_cycles(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
     output_json: Optional[str] = typer.Option(None, "--output-json", "-o", help="Export results as JSON."),
 ):
     """🔄 Detect all privilege escalation cycles using DFS."""
-    G, _ = _load_graph(input_file, kubectl)
+    G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss)
 
     result = detect_cycles(G)
     console.print(format_cycles(G, result))
@@ -188,11 +184,12 @@ def cmd_cycles(
 def cmd_critical_node(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
     top_n: int = typer.Option(5, "--top", "-n", help="Number of top critical nodes."),
     output_json: Optional[str] = typer.Option(None, "--output-json", "-o", help="Export results as JSON."),
 ):
     """🧪 Identify critical chokepoint nodes via graph surgery."""
-    G, _ = _load_graph(input_file, kubectl)
+    G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss)
 
     result = critical_node_analysis(G, top_n=top_n)
     console.print(format_critical_nodes(G, result))
@@ -220,13 +217,14 @@ def cmd_critical_node(
 def cmd_full_report(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
     blast_source: Optional[str] = typer.Option(None, "--blast-source", help="Specific source for blast radius."),
     blast_depth: int = typer.Option(3, "--blast-depth", help="Max BFS depth for blast radius."),
     output_json: Optional[str] = typer.Option(None, "--output-json", "-o", help="Export full JSON report."),
     export_format: Optional[str] = typer.Option(None, "--export", "-e", help="Export format: 'json' or 'report'."),
 ):
     """📋 Generate comprehensive Kill Chain Report with all analyses."""
-    G, _ = _load_graph(input_file, kubectl)
+    G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss)
 
     # Resolve blast source if provided
     blast_id = None
@@ -339,11 +337,12 @@ def cmd_diff(
 def cmd_classify(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
 ):
     """🏷️  Classify attack paths into categories with advanced scoring."""
     from .classifier import format_classified_paths
 
-    G, _ = _load_graph(input_file, kubectl)
+    G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss)
     paths = all_shortest_paths(G)
     console.print(format_classified_paths(G, paths))
 
@@ -352,12 +351,13 @@ def cmd_classify(
 def cmd_rbac_audit(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
     output_json: Optional[str] = typer.Option(None, "--output-json", "-o", help="Export RBAC findings as JSON."),
 ):
     """🔐 Analyze RBAC patterns for security risks."""
     from .rbac_analyzer import analyze_rbac, format_rbac_analysis
 
-    G, _ = _load_graph(input_file, kubectl)
+    G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss)
     result = analyze_rbac(G)
     console.print(format_rbac_analysis(result))
 
@@ -373,11 +373,12 @@ def cmd_explain(
     target: str = typer.Option(..., "--target", "-t", help="Target node ID or name."),
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
 ):
     """📝 Generate natural language explanation of an attack path."""
     from .nlp_explainer import explain_path
 
-    G, _ = _load_graph(input_file, kubectl)
+    G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss)
     source_id = _resolve_or_exit(G, source, "Source node")
     target_id = _resolve_or_exit(G, target, "Target node")
 
@@ -400,12 +401,13 @@ def cmd_explain(
 def cmd_node_risk(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
     top_n: int = typer.Option(10, "--top", "-n", help="Number of top nodes to display."),
 ):
     """📈 Compute amplified node risk scores based on path centrality."""
     from .node_risk import compute_node_risk_amplification, format_node_risk
 
-    G, _ = _load_graph(input_file, kubectl)
+    G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss)
     entries = compute_node_risk_amplification(G, cutoff=15)
     console.print(format_node_risk(entries, top_n=top_n))
 
@@ -414,12 +416,13 @@ def cmd_node_risk(
 def cmd_export_frontend(
     input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
     kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    use_cvss: bool = typer.Option(True, "--cvss-weights/--no-cvss-weights", help="Toggle CVSS weight adjustment."),
     output: str = typer.Option("visualizer/graph-data.json", "--output", "-o", help="Output JSON for frontend."),
 ):
     """🌐 Export graph data for the D3.js visualization frontend."""
     from .frontend_export import export_for_frontend
 
-    G, _ = _load_graph(input_file, kubectl)
+    G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss)
     export_for_frontend(G, output)
     console.print(f"[bold green]✓ Frontend data exported to:[/] {output}")
     console.print(f"[dim]Open visualizer/index.html in a browser to view.[/]")
@@ -435,6 +438,22 @@ def cmd_run_tests():
     console.print(format_test_results(result))
 
     if not result.success:
+        raise typer.Exit(code=1)
+
+
+@app.command("dump-raw")
+def cmd_dump_raw(
+    output: Path = typer.Option(
+        "raw-k8s-state.json", "--output", "-o", help="Output file path for raw JSON."
+    ),
+):
+    """📂 Dump raw Kubernetes resource state to a single JSON file (requires kubectl)."""
+    try:
+        with console.status("[bold green]Querying Kubernetes cluster for raw state..."):
+            dump_raw_kubernetes_state(output)
+        console.print(f"[bold green]✓ Raw cluster state saved to:[/] {output}")
+    except Exception as e:
+        console.print(f"[bold red]❌ Raw dump failed:[/] {e}")
         raise typer.Exit(code=1)
 
 

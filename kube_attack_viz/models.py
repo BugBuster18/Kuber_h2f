@@ -210,7 +210,7 @@ class CycleResult:
 
 @dataclass
 class CriticalNodeResult:
-    """Result of critical node analysis (graph surgery).
+    """Result of critic2al node analysis (graph surgery).
 
     Attributes:
         top_nodes: List of (node_id, node_name, paths_eliminated) tuples.

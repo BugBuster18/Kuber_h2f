@@ -513,3 +513,27 @@ def ingest_from_kubectl() -> ClusterGraph:
         nodes=list(node_index.values()),
         edges=all_edges,
     )
+
+
+def dump_raw_kubernetes_state(filepath: str | Path) -> None:
+    """Query core resources and dump the raw JSON to a file for diagnostics.
+
+    Args:
+        filepath: Output file path.
+    """
+    resources = {
+        "pods": _run_kubectl("pods"),
+        "services": _run_kubectl("services"),
+        "serviceaccounts": _run_kubectl("serviceaccounts"),
+        "secrets": _run_kubectl("secrets"),
+        "configmaps": _run_kubectl("configmaps"),
+        "rolebindings": _run_kubectl("rolebindings.rbac.authorization.k8s.io"),
+        "clusterrolebindings": _run_kubectl(
+            "clusterrolebindings.rbac.authorization.k8s.io"
+        ),
+    }
+
+    path = Path(filepath)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(resources, f, indent=2)
