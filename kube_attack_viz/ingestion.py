@@ -217,9 +217,18 @@ def _extract_services(raw: dict[str, Any]) -> list[NodeData]:
 
         svc_type = spec.get("type", "ClusterIP")
         is_source = svc_type in ("LoadBalancer", "NodePort")
-        risk = _RESOURCE_RISK_SCORES.get("service", 2.0)
+        
+        # Baseline
+        impact = _RESOURCE_IMPACT_SCORES.get("service", 3.0)
+        likelihood = _RESOURCE_BASE_LIKELIHOOD.get("service", 3.0)
+        
         if is_source:
-            risk = min(risk + 2.0, 10.0)
+            likelihood += 3.0  # Reachable from internet -> Higher likelihood
+            impact += 1.0      # Pivot point -> Slightly higher impact
+
+        likelihood = min(likelihood, 10.0)
+        impact = min(impact, 10.0)
+        risk = (likelihood / 10.0) * impact
 
         nodes.append(
             NodeData(
@@ -228,6 +237,8 @@ def _extract_services(raw: dict[str, Any]) -> list[NodeData]:
                 name=name,
                 namespace=ns,
                 risk_score=risk,
+                likelihood=likelihood,
+                impact=impact,
                 is_source=is_source,
                 is_sink=False,
                 cves=[],
@@ -244,13 +255,21 @@ def _extract_serviceaccounts(raw: dict[str, Any]) -> list[NodeData]:
         name = meta.get("name", "unknown")
         ns = meta.get("namespace", "default")
         node_id = _make_node_id("serviceaccount", ns, name)
+        
+        # Baseline
+        impact = _RESOURCE_IMPACT_SCORES.get("serviceaccount", 5.0)
+        likelihood = _RESOURCE_BASE_LIKELIHOOD.get("serviceaccount", 2.0)
+        risk = (likelihood / 10.0) * impact
+
         nodes.append(
             NodeData(
                 id=node_id,
                 type="serviceaccount",
                 name=name,
                 namespace=ns,
-                risk_score=_RESOURCE_RISK_SCORES.get("serviceaccount", 4.0),
+                risk_score=risk,
+                likelihood=likelihood,
+                impact=impact,
                 is_source=False,
                 is_sink=False,
                 cves=[],
@@ -267,13 +286,21 @@ def _extract_secrets(raw: dict[str, Any]) -> list[NodeData]:
         name = meta.get("name", "unknown")
         ns = meta.get("namespace", "default")
         node_id = _make_node_id("secret", ns, name)
+
+        # Baseline
+        impact = _RESOURCE_IMPACT_SCORES.get("secret", 9.0)
+        likelihood = _RESOURCE_BASE_LIKELIHOOD.get("secret", 1.5)
+        risk = (likelihood / 10.0) * impact
+
         nodes.append(
             NodeData(
                 id=node_id,
                 type="secret",
                 name=name,
                 namespace=ns,
-                risk_score=_RESOURCE_RISK_SCORES.get("secret", 7.0),
+                risk_score=risk,
+                likelihood=likelihood,
+                impact=impact,
                 is_source=False,
                 is_sink=True,
                 cves=[],
@@ -290,13 +317,21 @@ def _extract_configmaps(raw: dict[str, Any]) -> list[NodeData]:
         name = meta.get("name", "unknown")
         ns = meta.get("namespace", "default")
         node_id = _make_node_id("configmap", ns, name)
+        
+        # Baseline
+        impact = _RESOURCE_IMPACT_SCORES.get("configmap", 3.0)
+        likelihood = _RESOURCE_BASE_LIKELIHOOD.get("configmap", 1.5)
+        risk = (likelihood / 10.0) * impact
+
         nodes.append(
             NodeData(
                 id=node_id,
                 type="configmap",
                 name=name,
                 namespace=ns,
-                risk_score=_RESOURCE_RISK_SCORES.get("configmap", 2.5),
+                risk_score=risk,
+                likelihood=likelihood,
+                impact=impact,
                 is_source=False,
                 is_sink=False,
                 cves=[],
@@ -336,13 +371,18 @@ def _build_rbac_edges(
 
             # Create role node if it doesn't exist yet
             if role_id not in node_index:
-                risk = _RESOURCE_RISK_SCORES.get(role_kind, 4.0)
+                impact = _RESOURCE_IMPACT_SCORES.get(role_kind, 4.5)
+                likelihood = _RESOURCE_BASE_LIKELIHOOD.get(role_kind, 1.0)
+                risk = (likelihood / 10.0) * impact
+
                 node_index[role_id] = NodeData(
                     id=role_id,
                     type=role_kind,
                     name=role_name,
                     namespace=role_ns,
                     risk_score=risk,
+                    likelihood=likelihood,
+                    impact=impact,
                     is_source=False,
                     is_sink=False,
                     cves=[],
@@ -364,12 +404,18 @@ def _build_rbac_edges(
 
                 # Ensure subject node exists
                 if subj_id not in node_index:
+                    impact = _RESOURCE_IMPACT_SCORES.get(subj_kind, 3.0)
+                    likelihood = _RESOURCE_BASE_LIKELIHOOD.get(subj_kind, 1.0)
+                    risk = (likelihood / 10.0) * impact
+
                     node_index[subj_id] = NodeData(
                         id=subj_id,
                         type=subj_kind,
                         name=subj_name,
                         namespace=subj_ns,
-                        risk_score=_RESOURCE_RISK_SCORES.get(subj_kind, 3.0),
+                        risk_score=risk,
+                        likelihood=likelihood,
+                        impact=impact,
                         is_source=False,
                         is_sink=False,
                         cves=[],
@@ -413,12 +459,18 @@ def _build_pod_sa_edges(
             seen.add((pod_id, sa_id))
             # Ensure SA exists
             if sa_id not in node_index:
+                impact = _RESOURCE_IMPACT_SCORES.get("serviceaccount", 5.0)
+                likelihood = _RESOURCE_BASE_LIKELIHOOD.get("serviceaccount", 2.0)
+                risk = (likelihood / 10.0) * impact
+
                 node_index[sa_id] = NodeData(
                     id=sa_id,
                     type="serviceaccount",
                     name=sa_name,
                     namespace=ns,
-                    risk_score=_RESOURCE_RISK_SCORES.get("serviceaccount", 4.0),
+                    risk_score=risk,
+                    likelihood=likelihood,
+                    impact=impact,
                     is_source=False,
                     is_sink=False,
                     cves=[],
@@ -461,12 +513,18 @@ def _build_pod_secret_edges(
                 if (pod_id, secret_id) not in seen:
                     seen.add((pod_id, secret_id))
                     if secret_id not in node_index:
+                        impact = _RESOURCE_IMPACT_SCORES.get("secret", 9.0)
+                        likelihood = _RESOURCE_BASE_LIKELIHOOD.get("secret", 1.5)
+                        risk = (likelihood / 10.0) * impact
+
                         node_index[secret_id] = NodeData(
                             id=secret_id,
                             type="secret",
                             name=secret_name,
                             namespace=ns,
-                            risk_score=_RESOURCE_RISK_SCORES.get("secret", 7.0),
+                            risk_score=risk,
+                            likelihood=likelihood,
+                            impact=impact,
                             is_source=False,
                             is_sink=True,
                             cves=[],
