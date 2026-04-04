@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="KubeAttackViz — Interactive Kubernetes Attack Path Visualization powered by D3.js">
+    <title>KubeAttackViz — Attack Path Visualizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- ── Header ──────────────────────────────────────────────────────────── -->
+    <header id="app-header">
+        <div class="header-left">
+            <div class="logo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+            </div>
+            <h1 id="app-title">KubeAttackViz</h1>
+            <span class="version-badge">v2.0</span>
+        </div>
+        <div class="header-right">
+            <div class="stat-chip" id="stat-nodes">
+                <span class="stat-label">Nodes</span>
+                <span class="stat-value" id="node-count">0</span>
+            </div>
+            <div class="stat-chip" id="stat-edges">
+                <span class="stat-label">Edges</span>
+                <span class="stat-value" id="edge-count">0</span>
+            </div>
+            <div class="stat-chip stat-danger" id="stat-paths">
+                <span class="stat-label">Attack Paths</span>
+                <span class="stat-value" id="path-count">0</span>
+            </div>
+            <div class="stat-chip stat-warning" id="stat-cycles">
+                <span class="stat-label">Cycles</span>
+                <span class="stat-value" id="cycle-count">0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ── Main Layout ─────────────────────────────────────────────────────── -->
+    <main id="app-main">
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <!-- File Input -->
+            <section class="panel" id="panel-input">
+                <h2 class="panel-title">📂 Data Source</h2>
+                <div class="file-drop-zone" id="file-drop-zone">
+                    <p>Drop <code>graph-data.json</code> here</p>
+                    <p class="hint">or click to browse</p>
+                    <input type="file" id="file-input" accept=".json" hidden>
+                </div>
+                <button class="btn btn-primary" id="btn-load-demo">Load Demo Data</button>
+            </section>
+
+            <!-- Toggle Controls -->
+            <section class="panel" id="panel-controls">
+                <h2 class="panel-title">⚙️ Display Controls</h2>
+                <label class="toggle-row">
+                    <input type="checkbox" id="toggle-paths" checked>
+                    <span class="toggle-label">Show Attack Paths</span>
+                </label>
+                <label class="toggle-row">
+                    <input type="checkbox" id="toggle-cycles" checked>
+                    <span class="toggle-label">Show Cycles</span>
+                </label>
+                <label class="toggle-row">
+                    <input type="checkbox" id="toggle-labels" checked>
+                    <span class="toggle-label">Show Node Labels</span>
+                </label>
+                <label class="toggle-row">
+                    <input type="checkbox" id="toggle-critical" checked>
+                    <span class="toggle-label">Highlight Critical Nodes</span>
+                </label>
+            </section>
+
+            <!-- Legend -->
+            <section class="panel" id="panel-legend">
+                <h2 class="panel-title">🎨 Legend</h2>
+                <div class="legend-grid">
+                    <div class="legend-item"><span class="legend-dot" style="background:#4A90D9"></span> Pod</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#E8833A"></span> ServiceAccount</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#9B59B6"></span> Role</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#E74C3C"></span> Secret</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#1A1A2E"></span> Database</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#2ECC71"></span> Service</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#F39C12"></span> RoleBinding</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#8E44AD"></span> ClusterRole</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#95A5A6"></span> Other</div>
+                </div>
+                <div class="legend-grid" style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+                    <div class="legend-item"><span class="legend-line" style="background:#ff4757"></span> Attack Path</div>
+                    <div class="legend-item"><span class="legend-line" style="background:#ffa502"></span> Cycle Edge</div>
+                    <div class="legend-item"><span class="legend-dot legend-dot-critical"></span> Critical Node</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:#2ECC71; box-shadow: 0 0 6px #2ECC71"></span> Source</div>
+                </div>
+            </section>
+
+            <!-- Attack Paths List -->
+            <section class="panel" id="panel-paths">
+                <h2 class="panel-title">⚔️ Attack Paths</h2>
+                <div id="paths-list" class="scrollable-list">
+                    <p class="placeholder">Load data to view paths.</p>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Graph Canvas -->
+        <div id="graph-container">
+            <svg id="graph-svg"></svg>
+            <!-- Tooltip -->
+            <div id="tooltip" class="tooltip hidden">
+                <div class="tooltip-header" id="tooltip-name"></div>
+                <div class="tooltip-body">
+                    <div class="tooltip-row"><span class="tooltip-key">Type:</span><span id="tooltip-type"></span></div>
+                    <div class="tooltip-row"><span class="tooltip-key">Namespace:</span><span id="tooltip-namespace"></span></div>
+                    <div class="tooltip-row"><span class="tooltip-key">Risk Score:</span><span id="tooltip-risk"></span></div>
+                    <div class="tooltip-row"><span class="tooltip-key">CVEs:</span><span id="tooltip-cves"></span></div>
+                    <div class="tooltip-row"><span class="tooltip-key">Role:</span><span id="tooltip-role"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detail Panel -->
+        <aside id="detail-panel" class="hidden">
+            <button class="btn-close" id="btn-close-detail">&times;</button>
+            <h2 class="panel-title" id="detail-title">Node Details</h2>
+            <div id="detail-content"></div>
+        </aside>
+    </main>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
