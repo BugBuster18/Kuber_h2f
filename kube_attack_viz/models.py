@@ -41,8 +41,17 @@ class NodeData:
     impact: Optional[float] = None
 
     def to_dict(self) -> dict:
-        """Serialize node to dictionary matching the spec schema."""
-        return asdict(self)
+        """Serialize node to dictionary matching the strict original schema."""
+        return {
+            "id": self.id,
+            "type": self.type.capitalize() if self.type else "Unknown",
+            "name": self.name,
+            "namespace": self.namespace,
+            "risk_score": round(float(self.risk_score), 2),
+            "is_source": self.is_source,
+            "is_sink": self.is_sink,
+            "cves": self.cves,
+        }
 
     @classmethod
     def from_dict(cls, data: dict) -> NodeData:
@@ -83,8 +92,15 @@ class EdgeData:
     cvss: Optional[float] = None
 
     def to_dict(self) -> dict:
-        """Serialize edge to dictionary matching the spec schema."""
-        return asdict(self)
+        """Serialize edge to dictionary matching the strict original schema."""
+        return {
+            "source": self.source,
+            "target": self.target,
+            "relationship": self.relationship,
+            "weight": float(self.weight),
+            "cve": self.cve,
+            "cvss": self.cvss,
+        }
 
     @classmethod
     def from_dict(cls, data: dict) -> EdgeData:

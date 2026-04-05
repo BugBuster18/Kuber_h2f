@@ -366,18 +366,286 @@ def cmd_diff(
     old: str = typer.Argument(..., help="Path to old/baseline graph JSON."),
     new: str = typer.Argument(..., help="Path to new/current graph JSON."),
     output_json: Optional[str] = typer.Option(None, "--output-json", "-o", help="Export diff as JSON."),
+    neo4j_uri: Optional[str] = typer.Option(None, "--neo4j-uri", help="Neo4j bolt URI (e.g. bolt://localhost:7687)."),
+    neo4j_user: str = typer.Option("neo4j", "--neo4j-user", help="Neo4j username."),
+    neo4j_password: str = typer.Option("password", "--neo4j-pass", help="Neo4j password."),
 ):
     """🔀 Temporal analysis — diff two cluster graph snapshots."""
-    from .temporal import temporal_diff, format_temporal_diff
+    from .temporal import temporal_diff, format_temporal_diff, format_alert_summary, Neo4jExporter
 
     console.print(f"[bold blue]📊 Comparing:[/] {old} → {new}")
     diff = temporal_diff(old, new)
     console.print(format_temporal_diff(diff))
 
+    # Show alert summary
+    if diff.alerts:
+        console.print(format_alert_summary(diff.alerts))
+
     if output_json:
         with open(output_json, "w", encoding="utf-8") as f:
             json.dump(diff.to_dict(), f, indent=2, default=str)
         console.print(f"[bold green]✓ Diff exported:[/] {output_json}")
+
+    # Neo4j export
+    if neo4j_uri and diff.has_changes:
+        try:
+            exporter = Neo4jExporter(uri=neo4j_uri, user=neo4j_user, password=neo4j_password)
+            exporter.ensure_constraints()
+            stats = exporter.export_diff(diff)
+            exporter.close()
+            console.print(f"[bold green]✓ Neo4j export:[/] {stats}")
+        except Exception as e:
+            console.print(f"[bold red]❌ Neo4j export failed:[/] {e}")
+
+
+@app.command("watch")
+def cmd_watch(
+    interval: int = typer.Option(300, "--interval", "-n", help="Scan interval in seconds."),
+    source: str = typer.Option("kubectl", "--source", "-s", help="Scan source: 'kubectl' or 'json:<path>'."),
+    persist_dir: str = typer.Option(".temporal_snapshots", "--persist-dir", "-d", help="Directory for snapshot persistence."),
+    max_snapshots: int = typer.Option(100, "--max-snapshots", help="Maximum snapshots to retain."),
+    neo4j_uri: Optional[str] = typer.Option(None, "--neo4j-uri", help="Neo4j bolt URI for auto-export on changes."),
+    neo4j_user: str = typer.Option("neo4j", "--neo4j-user", help="Neo4j username."),
+    neo4j_password: str = typer.Option("password", "--neo4j-pass", help="Neo4j password."),
+    output_json: Optional[str] = typer.Option(None, "--output-json", help="Save diff history to JSON on exit."),
+    single: bool = typer.Option(False, "--single", help="Run a single scan cycle then exit."),
+):
+    """👁️  Continuous temporal monitoring — periodic scan, diff, and alert.
+
+    Continuously scans the cluster at the specified interval, compares
+    consecutive snapshots, and generates alerts when new attack paths
+    appear. Optionally exports changed graphs to Neo4j automatically.
+
+    Examples:
+        # Watch live cluster every 5 minutes
+        kube-attack-viz watch --interval 300 --source kubectl
+
+        # Watch a JSON file (re-read periodically) with Neo4j export
+        kube-attack-viz watch -n 60 -s json:cluster-graph.json --neo4j-uri bolt://localhost:7687
+
+        # Single scan (for CI/CD pipelines)
+        kube-attack-viz watch --single -s json:cluster-graph.json
+    """
+    from .temporal import (
+        TemporalWatcher, format_temporal_diff, format_alert_summary,
+        format_snapshot_history, TemporalDiff, TemporalAlert,
+    )
+
+    scan_count = 0
+    alert_count = 0
+
+    def on_diff(diff: TemporalDiff):
+        nonlocal scan_count
+        scan_count += 1
+        if diff.has_changes:
+            console.print(f"\n[bold yellow]⚡ Change detected (scan #{scan_count}):[/]")
+            console.print(format_temporal_diff(diff))
+        else:
+            console.print(f"[dim]  Scan #{scan_count}: No changes.[/]")
+
+    def on_alert(alert: TemporalAlert):
+        nonlocal alert_count
+        alert_count += 1
+        sev_colors = {
+            "CRITICAL": "bold red", "HIGH": "bold yellow",
+            "MEDIUM": "yellow", "LOW": "blue", "INFO": "dim",
+        }
+        color = sev_colors.get(alert.severity, "white")
+        console.print(f"  [{color}]🚨 [{alert.severity}] {alert.title}[/]")
+
+    watcher = TemporalWatcher(
+        interval_seconds=interval,
+        source=source,
+        persist_dir=persist_dir,
+        max_snapshots=max_snapshots,
+        neo4j_uri=neo4j_uri,
+        neo4j_user=neo4j_user,
+        neo4j_password=neo4j_password,
+        on_diff=on_diff,
+        on_alert=on_alert,
+    )
+
+    if single:
+        # Single scan mode (good for CI/CD)
+        console.print(f"[bold cyan]📸 Single scan mode ({source})...[/]")
+        diff = watcher.scan_once()
+        if diff is None:
+            console.print("[bold green]✓ First snapshot captured.[/]")
+            console.print("[dim]  Run again to diff against this baseline.[/]")
+        elif not diff.has_changes:
+            console.print("[bold green]✓ No changes detected.[/]")
+
+        console.print(format_snapshot_history(watcher.store))
+
+        if output_json and watcher.diff_history:
+            history = [d.to_dict() for d in watcher.diff_history]
+            with open(output_json, "w", encoding="utf-8") as f:
+                json.dump(history, f, indent=2, default=str)
+            console.print(f"[bold green]✓ Diff history saved:[/] {output_json}")
+        return
+
+    # Continuous mode
+    console.print(Panel.fit(
+        f"[bold cyan]👁️  Temporal Watcher Active[/]\n"
+        f"  Source:   {source}\n"
+        f"  Interval: {interval}s\n"
+        f"  Storage:  {persist_dir}\n"
+        f"  Neo4j:    {neo4j_uri or 'disabled'}\n\n"
+        f"  Press Ctrl+C to stop.",
+        title="[bold]KubeAttackViz Temporal Monitor[/]",
+        border_style="cyan",
+    ))
+
+    watcher.start()
+
+    try:
+        while watcher.is_running:
+            import time
+            time.sleep(1)
+    except KeyboardInterrupt:
+        console.print("\n[bold yellow]⏹  Stopping watcher...[/]")
+        watcher.stop()
+
+    # Final summary
+    console.print(f"\n[bold green]✓ Monitoring complete.[/]")
+    console.print(f"  Scans performed:  {scan_count}")
+    console.print(f"  Alerts generated: {alert_count}")
+    console.print(f"  Snapshots stored: {watcher.snapshot_count}")
+    console.print(format_snapshot_history(watcher.store))
+
+    if output_json and watcher.diff_history:
+        history = [d.to_dict() for d in watcher.diff_history]
+        with open(output_json, "w", encoding="utf-8") as f:
+            json.dump(history, f, indent=2, default=str)
+        console.print(f"[bold green]✓ Diff history saved:[/] {output_json}")
+
+
+@app.command("temporal-history")
+def cmd_temporal_history(
+    persist_dir: str = typer.Option(".temporal_snapshots", "--persist-dir", "-d", help="Snapshot persistence directory."),
+    diff_all: bool = typer.Option(False, "--diff-all", help="Diff all consecutive snapshot pairs."),
+    output_json: Optional[str] = typer.Option(None, "--output-json", "-o", help="Export full history as JSON."),
+):
+    """📜 View temporal snapshot history and replay diffs.
+
+    Shows all stored snapshots and optionally re-computes diffs for
+    each consecutive pair to reconstruct the full temporal timeline.
+    """
+    from .temporal import (
+        SnapshotStore, diff_snapshots, format_temporal_diff,
+        format_snapshot_history, format_alert_summary,
+    )
+
+    store = SnapshotStore(persist_dir=persist_dir)
+
+    if store.count == 0:
+        console.print("[bold yellow]⚠ No snapshots found.[/]")
+        console.print(f"[dim]  Directory checked: {persist_dir}[/]")
+        console.print("[dim]  Run 'watch --single' or 'temporal-snapshot' to capture one.[/]")
+        return
+
+    console.print(format_snapshot_history(store))
+
+    if diff_all:
+        pairs = store.get_consecutive_pairs()
+        if not pairs:
+            console.print("[dim]  Need at least 2 snapshots for diff.[/]")
+            return
+
+        all_diffs = []
+        for i, (old, new) in enumerate(pairs, 1):
+            console.print(f"\n[bold blue]─── Diff #{i}: {old.timestamp} → {new.timestamp} ───[/]")
+            diff = diff_snapshots(old, new)
+            console.print(format_temporal_diff(diff))
+            if diff.alerts:
+                console.print(format_alert_summary(diff.alerts))
+            all_diffs.append(diff)
+
+        if output_json:
+            history = [d.to_dict() for d in all_diffs]
+            with open(output_json, "w", encoding="utf-8") as f:
+                json.dump(history, f, indent=2, default=str)
+            console.print(f"[bold green]✓ Full diff history exported:[/] {output_json}")
+
+
+@app.command("temporal-snapshot")
+def cmd_temporal_snapshot(
+    input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
+    kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Capture from live cluster."),
+    persist_dir: str = typer.Option(".temporal_snapshots", "--persist-dir", "-d", help="Snapshot storage directory."),
+    diff_previous: bool = typer.Option(True, "--diff/--no-diff", help="Diff against previous snapshot."),
+    neo4j_uri: Optional[str] = typer.Option(None, "--neo4j-uri", help="Neo4j bolt URI for export."),
+    neo4j_user: str = typer.Option("neo4j", "--neo4j-user", help="Neo4j username."),
+    neo4j_password: str = typer.Option("password", "--neo4j-pass", help="Neo4j password."),
+):
+    """📸 Capture a single temporal snapshot and optionally diff.
+
+    Stores the current cluster state as a snapshot. If a previous
+    snapshot exists, automatically diffs and alerts on new attack paths.
+
+    Examples:
+        # Capture from JSON
+        kube-attack-viz temporal-snapshot -i cluster-graph.json
+
+        # Capture from live cluster with Neo4j export
+        kube-attack-viz temporal-snapshot -k --neo4j-uri bolt://localhost:7687
+    """
+    from .temporal import (
+        Snapshot, SnapshotStore, diff_snapshots,
+        format_temporal_diff, format_alert_summary,
+        format_snapshot_history, Neo4jExporter,
+    )
+
+    store = SnapshotStore(persist_dir=persist_dir)
+
+    # Capture snapshot
+    if kubectl:
+        with console.status("[bold cyan]Querying cluster via kubectl..."):
+            cluster = ingest_from_kubectl()
+        source = "kubectl"
+    elif input_file:
+        cluster = ingest_from_json(input_file)
+        source = f"json:{input_file}"
+    else:
+        console.print("[bold red]❌ Error:[/] Provide --input or --kubectl.")
+        raise typer.Exit(code=1)
+
+    new_snap = Snapshot.from_cluster(cluster, source=source)
+    old_snap = store.latest
+
+    # Quick hash check
+    if old_snap and old_snap.graph_hash == new_snap.graph_hash:
+        console.print("[bold green]✓ Snapshot captured (identical to previous).[/]")
+        store.add(new_snap)
+        console.print(format_snapshot_history(store))
+        return
+
+    store.add(new_snap)
+    console.print(f"[bold green]✓ Snapshot captured:[/] {new_snap.snapshot_id}")
+    console.print(f"  Hash: {new_snap.graph_hash}  Source: {source}")
+
+    # Diff against previous
+    if diff_previous and old_snap:
+        diff = diff_snapshots(old_snap, new_snap)
+        console.print(format_temporal_diff(diff))
+
+        if diff.alerts:
+            console.print(format_alert_summary(diff.alerts))
+
+        # Neo4j export if changes detected
+        if neo4j_uri and diff.has_changes:
+            try:
+                exporter = Neo4jExporter(uri=neo4j_uri, user=neo4j_user, password=neo4j_password)
+                exporter.ensure_constraints()
+                stats = exporter.export_diff(diff, old_snap, new_snap)
+                exporter.close()
+                console.print(f"[bold green]✓ Neo4j export:[/] {stats}")
+            except Exception as e:
+                console.print(f"[bold red]❌ Neo4j export failed:[/] {e}")
+    elif not old_snap:
+        console.print("[dim]  First snapshot — diff will be available after next capture.[/]")
+
+    console.print(format_snapshot_history(store))
 
 
 @app.command("classify")
