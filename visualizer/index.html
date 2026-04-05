@@ -3,117 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="KubeAttackViz — Interactive Kubernetes Attack Path Visualization powered by D3.js">
-    <title>KubeAttackViz — Attack Path Visualizer</title>
+    <meta name="description" content="KubeAttackViz — Kubernetes Attack Surface Intelligence Dashboard">
+    <title>KubeAttackViz — Attack Surface Intelligence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- ── Header ──────────────────────────────────────────────────────────── -->
-    <header id="app-header">
-        <div class="header-left">
-            <div class="logo">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <!-- ── Top Bar ─────────────────────────────────────────────────────── -->
+    <nav id="topbar">
+        <div class="topbar-brand">
+            <div class="brand-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                     <path d="M2 17l10 5 10-5"/>
                     <path d="M2 12l10 5 10-5"/>
                 </svg>
             </div>
-            <h1 id="app-title">KubeAttackViz</h1>
-            <span class="version-badge">v2.0</span>
+            <span class="brand-name">KubeAttackViz</span>
+            <span class="brand-tag">v2.0</span>
         </div>
-        <div class="header-right">
-            <div class="stat-chip" id="stat-nodes">
-                <span class="stat-label">Nodes</span>
-                <span class="stat-value" id="node-count">0</span>
-            </div>
-            <div class="stat-chip" id="stat-edges">
-                <span class="stat-label">Edges</span>
-                <span class="stat-value" id="edge-count">0</span>
-            </div>
-            <div class="stat-chip stat-danger" id="stat-paths">
-                <span class="stat-label">Attack Paths</span>
-                <span class="stat-value" id="path-count">0</span>
-            </div>
-            <div class="stat-chip stat-warning" id="stat-cycles">
-                <span class="stat-label">Cycles</span>
-                <span class="stat-value" id="cycle-count">0</span>
-            </div>
+        <div class="topbar-tabs" id="topbar-tabs">
+            <button class="tab-btn active" data-view="graph">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/></svg>
+                Graph
+            </button>
+            <button class="tab-btn" data-view="dashboard">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                Dashboard
+            </button>
+            <button class="tab-btn" data-view="timeline">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Timeline
+            </button>
         </div>
-    </header>
+        <div class="topbar-metrics" id="topbar-metrics">
+            <div class="metric" id="metric-nodes"><span class="metric-val" id="node-count">—</span><span class="metric-lbl">Nodes</span></div>
+            <div class="metric" id="metric-edges"><span class="metric-val" id="edge-count">—</span><span class="metric-lbl">Edges</span></div>
+            <div class="metric metric-hot" id="metric-paths"><span class="metric-val" id="path-count">—</span><span class="metric-lbl">Paths</span></div>
+            <div class="metric metric-warn" id="metric-cycles"><span class="metric-val" id="cycle-count">—</span><span class="metric-lbl">Cycles</span></div>
+        </div>
+    </nav>
 
-    <!-- ── Main Layout ─────────────────────────────────────────────────────── -->
-    <main id="app-main">
-        <!-- Sidebar -->
-        <aside id="sidebar">
-            <!-- File Input -->
-            <section class="panel" id="panel-input">
-                <h2 class="panel-title">📂 Data Source</h2>
-                <div class="file-drop-zone" id="file-drop-zone">
-                    <p>Drop <code>graph-data.json</code> here</p>
-                    <p class="hint">or click to browse</p>
-                    <input type="file" id="file-input" accept=".json" hidden>
-                </div>
-                <button class="btn btn-primary" id="btn-load-demo">Load Demo Data</button>
-            </section>
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 1: GRAPH                                                     -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <main id="view-graph" class="view active">
 
-            <!-- Toggle Controls -->
-            <section class="panel" id="panel-controls">
-                <h2 class="panel-title">⚙️ Display Controls</h2>
-                <label class="toggle-row">
+        <!-- Command Panel (left rail) -->
+        <aside id="cmd-rail">
+            <!-- Overlays -->
+            <div class="rail-section">
+                <div class="rail-label">Overlays</div>
+                <label class="rail-toggle" title="Attack Paths">
                     <input type="checkbox" id="toggle-paths" checked>
-                    <span class="toggle-label">Show Attack Paths</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 </label>
-                <label class="toggle-row">
+                <label class="rail-toggle" title="Cycles">
                     <input type="checkbox" id="toggle-cycles" checked>
-                    <span class="toggle-label">Show Cycles</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0118.8-4.3"/><path d="M21.5 12.5a10 10 0 01-18.8 4.3"/></svg>
                 </label>
-                <label class="toggle-row">
+                <label class="rail-toggle" title="Labels">
                     <input type="checkbox" id="toggle-labels" checked>
-                    <span class="toggle-label">Show Node Labels</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                 </label>
-                <label class="toggle-row">
+                <label class="rail-toggle" title="Critical Nodes">
                     <input type="checkbox" id="toggle-critical" checked>
-                    <span class="toggle-label">Highlight Critical Nodes</span>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 </label>
-            </section>
+            </div>
 
-            <!-- Legend -->
-            <section class="panel" id="panel-legend">
-                <h2 class="panel-title">🎨 Legend</h2>
-                <div class="legend-grid">
-                    <div class="legend-item"><span class="legend-dot" style="background:#4A90D9"></span> Pod</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#E8833A"></span> ServiceAccount</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#9B59B6"></span> Role</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#E74C3C"></span> Secret</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#1A1A2E"></span> Database</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#2ECC71"></span> Service</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#F39C12"></span> RoleBinding</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#8E44AD"></span> ClusterRole</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#95A5A6"></span> Other</div>
+            <!-- Legend (compact) -->
+            <div class="rail-section">
+                <div class="rail-label">Types</div>
+                <div class="rail-legend">
+                    <span class="rl-dot" style="--c:#4A90D9" title="Pod"></span>
+                    <span class="rl-dot" style="--c:#E8833A" title="ServiceAccount"></span>
+                    <span class="rl-dot" style="--c:#9B59B6" title="Role"></span>
+                    <span class="rl-dot" style="--c:#E74C3C" title="Secret"></span>
+                    <span class="rl-dot" style="--c:#2ECC71" title="Service"></span>
+                    <span class="rl-dot" style="--c:#8E44AD" title="ClusterRole"></span>
+                    <span class="rl-dot" style="--c:#1ABC9C" title="ConfigMap"></span>
+                    <span class="rl-dot" style="--c:#34495E" title="Node"></span>
                 </div>
-                <div class="legend-grid" style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
-                    <div class="legend-item"><span class="legend-line" style="background:#ff4757"></span> Attack Path</div>
-                    <div class="legend-item"><span class="legend-line" style="background:#ffa502"></span> Cycle Edge</div>
-                    <div class="legend-item"><span class="legend-dot legend-dot-critical"></span> Critical Node</div>
-                    <div class="legend-item"><span class="legend-dot" style="background:#2ECC71; box-shadow: 0 0 6px #2ECC71"></span> Source</div>
-                </div>
-            </section>
-
-            <!-- Attack Paths List -->
-            <section class="panel" id="panel-paths">
-                <h2 class="panel-title">⚔️ Attack Paths</h2>
-                <div id="paths-list" class="scrollable-list">
-                    <p class="placeholder">Load data to view paths.</p>
-                </div>
-            </section>
+            </div>
         </aside>
 
         <!-- Graph Canvas -->
         <div id="graph-container">
             <svg id="graph-svg"></svg>
+
             <!-- Tooltip -->
             <div id="tooltip" class="tooltip hidden">
                 <div class="tooltip-header" id="tooltip-name"></div>
@@ -134,7 +114,16 @@
             </div>
         </div>
 
-        <!-- Detail Panel -->
+        <!-- Attack Paths Drawer (right side) -->
+        <aside id="paths-drawer">
+            <div class="drawer-head">
+                <span class="drawer-title">Attack Paths</span>
+                <span class="drawer-badge" id="paths-badge">0</span>
+            </div>
+            <div id="paths-list" class="drawer-body"></div>
+        </aside>
+
+        <!-- Node Detail Panel (overlays on right when a node is clicked) -->
         <aside id="detail-panel" class="hidden">
             <button class="btn-close" id="btn-close-detail">&times;</button>
             <h2 class="panel-title" id="detail-title">Node Details</h2>
@@ -142,7 +131,102 @@
         </aside>
     </main>
 
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 2: DASHBOARD                                                 -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <main id="view-dashboard" class="view">
+        <div class="dash-grid">
+            <div class="posture-row" id="posture-row">
+                <div class="posture-card" id="pc-score">
+                    <div class="pc-ring" id="pc-ring">
+                        <svg viewBox="0 0 120 120"><circle class="ring-bg" cx="60" cy="60" r="52"/><circle class="ring-fg" id="ring-fg" cx="60" cy="60" r="52"/></svg>
+                        <span class="pc-ring-val" id="posture-score">—</span>
+                    </div>
+                    <div class="pc-meta"><span class="pc-title">Security Posture</span><span class="pc-sub" id="posture-label">Load data</span></div>
+                </div>
+                <div class="posture-card pc-stat">
+                    <span class="pc-big" id="stat-total-paths">0</span>
+                    <span class="pc-label">Attack Paths</span>
+                    <div class="severity-pills" id="severity-pills"></div>
+                </div>
+                <div class="posture-card pc-stat">
+                    <span class="pc-big" id="stat-critical-node-name">—</span>
+                    <span class="pc-label">#1 Critical Node</span>
+                    <span class="pc-sub" id="stat-critical-node-impact">—</span>
+                </div>
+                <div class="posture-card pc-stat">
+                    <span class="pc-big" id="stat-total-cves">0</span>
+                    <span class="pc-label">Known CVEs</span>
+                    <span class="pc-sub" id="stat-max-cvss">—</span>
+                </div>
+            </div>
+            <div class="dash-row">
+                <div class="dash-card" id="card-blast">
+                    <div class="dash-card-head">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                        Blast Radius
+                    </div>
+                    <div class="dash-card-body" id="blast-body"><p class="empty-state">No data loaded.</p></div>
+                </div>
+                <div class="dash-card" id="card-critical">
+                    <div class="dash-card-head">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        Critical Chokepoints
+                    </div>
+                    <div class="dash-card-body" id="critical-body"><p class="empty-state">No data loaded.</p></div>
+                </div>
+            </div>
+            <div class="dash-card dash-card-full" id="card-pathdetail">
+                <div class="dash-card-head">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    Attack Path Analysis
+                </div>
+                <div class="dash-card-body table-wrap" id="pathdetail-body"><p class="empty-state">No data loaded.</p></div>
+            </div>
+            <div class="dash-card dash-card-full" id="card-cves">
+                <div class="dash-card-head">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    CVE Intelligence
+                </div>
+                <div class="dash-card-body" id="cve-body"><p class="empty-state">No data loaded.</p></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- VIEW 3: TIMELINE                                                  -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <main id="view-timeline" class="view">
+        <div class="timeline-container">
+            <div class="timeline-header">
+                <div class="tl-title-group">
+                    <h2>Temporal Analysis</h2>
+                    <p class="tl-subtitle">Track cluster state changes across scans. Load snapshots from <code>.temporal_snapshots/</code></p>
+                </div>
+                <div class="tl-actions">
+                    <div class="drop-zone drop-zone-sm" id="timeline-drop-zone">
+                        <span>Drop snapshot JSONs</span>
+                        <input type="file" id="timeline-file-input" accept=".json" multiple hidden>
+                    </div>
+                    <button class="btn-action" id="btn-load-timeline">Load Timeline</button>
+                </div>
+            </div>
+            <div class="timeline-track" id="timeline-track">
+                <div class="tl-empty-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.25"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <p>No snapshots loaded.</p>
+                    <p class="tl-hint">Run <code>python main.py temporal-snapshot -i cluster-graph.json</code> to capture snapshots, then drag the files here.</p>
+                </div>
+            </div>
+            <div class="diff-panel" id="diff-panel" style="display:none">
+                <div class="diff-panel-head" id="diff-panel-head"><h3>Diff Details</h3><button class="btn-close" id="btn-close-diff">&times;</button></div>
+                <div class="diff-panel-body" id="diff-panel-body"></div>
+            </div>
+        </div>
+    </main>
+
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="script.js"></script>
+    <script src="dashboard.js"></script>
 </body>
 </html>

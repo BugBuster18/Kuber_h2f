@@ -148,30 +148,6 @@ function initSVG() {
 }
 
 function initControls() {
-    // File drop zone
-    const dropZone  = document.getElementById('file-drop-zone');
-    const fileInput = document.getElementById('file-input');
-
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-    });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        const file = e.dataTransfer.files[0];
-        if (file) loadFile(file);
-    });
-
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files[0]) loadFile(e.target.files[0]);
-    });
-
-    // Demo button
-    document.getElementById('btn-load-demo').addEventListener('click', loadDemoData);
-
     // Toggles
     document.getElementById('toggle-paths').addEventListener('change', updateVisibility);
     document.getElementById('toggle-cycles').addEventListener('change', updateVisibility);
@@ -188,6 +164,9 @@ function initControls() {
     document.getElementById('btn-zoom-in').addEventListener('click', zoomIn);
     document.getElementById('btn-zoom-out').addEventListener('click', zoomOut);
     document.getElementById('btn-zoom-reset').addEventListener('click', resetZoom);
+
+    // Auto-load graph data
+    loadDemoData();
 }
 
 // ─── Data Loading ───────────────────────────────────────────────────────────
@@ -212,7 +191,7 @@ async function loadDemoData() {
         const data = await resp.json();
         loadGraphData(data);
     } catch (err) {
-        alert('Could not load demo data. Run:\n  python main.py export-frontend --input mock-cluster-graph.json\nto generate visualizer/graph-data.json\n\nError: ' + err.message);
+        console.warn('Auto-load: graph-data.json not found. Run: python main.py export-frontend --input cluster-graph.json');
     }
 }
 
@@ -233,6 +212,11 @@ function loadGraphData(data) {
 
     // Render graph
     renderGraph(data);
+
+    // Populate dashboard (View 2)
+    if (typeof populateDashboard === 'function') {
+        populateDashboard(data);
+    }
 }
 
 function buildLookups(data) {
@@ -272,8 +256,11 @@ function renderPathCards(paths) {
     const list = document.getElementById('paths-list');
     list.innerHTML = '';
 
+    const badge = document.getElementById('paths-badge');
+    if (badge) badge.textContent = paths.length;
+
     if (paths.length === 0) {
-        list.innerHTML = '<p class="placeholder">No attack paths detected.</p>';
+        list.innerHTML = '<p class="empty-state">No attack paths detected.</p>';
         return;
     }
 
@@ -288,7 +275,7 @@ function renderPathCards(paths) {
         card.innerHTML = `
             <div class="path-card-header">
                 <span class="path-card-title">Path #${idx + 1}</span>
-                <span class="severity-badge severity-${severity}">${severity}</span>
+                <span class="sev sev-${severity}">${severity}</span>
             </div>
             <div class="path-card-route">${names}</div>
         `;
@@ -712,7 +699,7 @@ function showDetailPanel(d) {
             <ul class="detail-list">
                 ${pathsThrough.map((p, i) => {
                     const names = (p.path_names || []).join(' → ');
-                    return `<li><span class="severity-badge severity-${p.severity}" style="margin-right:6px">${p.severity}</span> ${names}</li>`;
+                    return `<li><span class="sev sev-${p.severity}" style="margin-right:6px">${p.severity}</span> ${names}</li>`;
                 }).join('') || '<li>No attack paths pass through this node.</li>'}
             </ul>
         </div>
