@@ -1,0 +1,72 @@
+{
+  "snapshot_id": "70d3e158f8aacc26093a948e",
+  "timestamp": "2026-04-05T05:39:47.721675+00:00",
+  "cluster_data": {
+    "nodes": [
+      {
+        "id": "namespace:cluster/default",
+        "type": "Namespace",
+        "name": "default",
+        "namespace": "cluster",
+        "risk_score": 4.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "node:cluster/desktop-control-plane",
+        "type": "Node",
+        "name": "desktop-control-plane",
+        "namespace": "cluster",
+        "risk_score": 9.0,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      },
+      {
+        "id": "node:cluster/desktop-worker",
+        "type": "Node",
+        "name": "desktop-worker",
+        "namespace": "cluster",
+        "risk_score": 9.0,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      },
+      {
+        "id": "node:cluster/desktop-worker2",
+        "type": "Node",
+        "name": "desktop-worker2",
+        "namespace": "cluster",
+        "risk_score": 9.0,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      },
+      {
+        "id": "node:cluster/desktop-worker3",
+        "type": "Node",
+        "name": "desktop-worker3",
+        "namespace": "cluster",
+        "risk_score": 9.0,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      },
+      {
+        "id": "service:default/kubernetes",
+        "type": "Service",
+        "name": "kubernetes",
+        "namespace": "default",
+        "risk_score": 4.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      }
+    ],
+    "edges": []
+  },
+  "graph_hash": "51902c7fbe593b7a",
+  "source": "kubectl",
+  "metadata": {}
+}

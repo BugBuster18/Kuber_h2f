@@ -1,0 +1,2287 @@
+{
+  "snapshot_id": "e6e8e800590ff4e77716bf99",
+  "timestamp": "2026-04-05T05:59:27.109158+00:00",
+  "cluster_data": {
+    "nodes": [
+      {
+        "id": "pod:default/my-pod",
+        "type": "Pod",
+        "name": "my-pod",
+        "namespace": "default",
+        "risk_score": 0.8,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:default/my-pod2",
+        "type": "Pod",
+        "name": "my-pod2",
+        "namespace": "default",
+        "risk_score": 0.8,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/coredns-7c65d6cfc9-4sw6h",
+        "type": "Pod",
+        "name": "coredns-7c65d6cfc9-4sw6h",
+        "namespace": "kube-system",
+        "risk_score": 0.8,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/coredns-7c65d6cfc9-6ll6n",
+        "type": "Pod",
+        "name": "coredns-7c65d6cfc9-6ll6n",
+        "namespace": "kube-system",
+        "risk_score": 0.8,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/etcd-desktop-control-plane",
+        "type": "Pod",
+        "name": "etcd-desktop-control-plane",
+        "namespace": "kube-system",
+        "risk_score": 2.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kindnet-42w2h",
+        "type": "Pod",
+        "name": "kindnet-42w2h",
+        "namespace": "kube-system",
+        "risk_score": 2.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kindnet-7hgf9",
+        "type": "Pod",
+        "name": "kindnet-7hgf9",
+        "namespace": "kube-system",
+        "risk_score": 2.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kindnet-7rd6j",
+        "type": "Pod",
+        "name": "kindnet-7rd6j",
+        "namespace": "kube-system",
+        "risk_score": 2.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kindnet-t8jpd",
+        "type": "Pod",
+        "name": "kindnet-t8jpd",
+        "namespace": "kube-system",
+        "risk_score": 2.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kube-apiserver-desktop-control-plane",
+        "type": "Pod",
+        "name": "kube-apiserver-desktop-control-plane",
+        "namespace": "kube-system",
+        "risk_score": 2.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kube-controller-manager-desktop-control-plane",
+        "type": "Pod",
+        "name": "kube-controller-manager-desktop-control-plane",
+        "namespace": "kube-system",
+        "risk_score": 2.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kube-proxy-8qqkf",
+        "type": "Pod",
+        "name": "kube-proxy-8qqkf",
+        "namespace": "kube-system",
+        "risk_score": 4.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kube-proxy-9rtcm",
+        "type": "Pod",
+        "name": "kube-proxy-9rtcm",
+        "namespace": "kube-system",
+        "risk_score": 4.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kube-proxy-pbjz4",
+        "type": "Pod",
+        "name": "kube-proxy-pbjz4",
+        "namespace": "kube-system",
+        "risk_score": 4.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kube-proxy-z6fht",
+        "type": "Pod",
+        "name": "kube-proxy-z6fht",
+        "namespace": "kube-system",
+        "risk_score": 4.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:kube-system/kube-scheduler-desktop-control-plane",
+        "type": "Pod",
+        "name": "kube-scheduler-desktop-control-plane",
+        "namespace": "kube-system",
+        "risk_score": 2.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod:local-path-storage/local-path-provisioner-57c5987fd4-6bd2q",
+        "type": "Pod",
+        "name": "local-path-provisioner-57c5987fd4-6bd2q",
+        "namespace": "local-path-storage",
+        "risk_score": 0.8,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "service:default/kubernetes",
+        "type": "Service",
+        "name": "kubernetes",
+        "namespace": "default",
+        "risk_score": 0.9,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "service:kube-system/kube-dns",
+        "type": "Service",
+        "name": "kube-dns",
+        "namespace": "kube-system",
+        "risk_score": 0.9,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:default/default",
+        "type": "Serviceaccount",
+        "name": "default",
+        "namespace": "default",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-node-lease/default",
+        "type": "Serviceaccount",
+        "name": "default",
+        "namespace": "kube-node-lease",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-public/default",
+        "type": "Serviceaccount",
+        "name": "default",
+        "namespace": "kube-public",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/attachdetach-controller",
+        "type": "Serviceaccount",
+        "name": "attachdetach-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/bootstrap-signer",
+        "type": "Serviceaccount",
+        "name": "bootstrap-signer",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/certificate-controller",
+        "type": "Serviceaccount",
+        "name": "certificate-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/clusterrole-aggregation-controller",
+        "type": "Serviceaccount",
+        "name": "clusterrole-aggregation-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/coredns",
+        "type": "Serviceaccount",
+        "name": "coredns",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/cronjob-controller",
+        "type": "Serviceaccount",
+        "name": "cronjob-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/daemon-set-controller",
+        "type": "Serviceaccount",
+        "name": "daemon-set-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/default",
+        "type": "Serviceaccount",
+        "name": "default",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/deployment-controller",
+        "type": "Serviceaccount",
+        "name": "deployment-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/disruption-controller",
+        "type": "Serviceaccount",
+        "name": "disruption-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/endpoint-controller",
+        "type": "Serviceaccount",
+        "name": "endpoint-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/endpointslice-controller",
+        "type": "Serviceaccount",
+        "name": "endpointslice-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/endpointslicemirroring-controller",
+        "type": "Serviceaccount",
+        "name": "endpointslicemirroring-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/ephemeral-volume-controller",
+        "type": "Serviceaccount",
+        "name": "ephemeral-volume-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/expand-controller",
+        "type": "Serviceaccount",
+        "name": "expand-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/generic-garbage-collector",
+        "type": "Serviceaccount",
+        "name": "generic-garbage-collector",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/horizontal-pod-autoscaler",
+        "type": "Serviceaccount",
+        "name": "horizontal-pod-autoscaler",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/job-controller",
+        "type": "Serviceaccount",
+        "name": "job-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/kindnet",
+        "type": "Serviceaccount",
+        "name": "kindnet",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/kube-proxy",
+        "type": "Serviceaccount",
+        "name": "kube-proxy",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/legacy-service-account-token-cleaner",
+        "type": "Serviceaccount",
+        "name": "legacy-service-account-token-cleaner",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/namespace-controller",
+        "type": "Serviceaccount",
+        "name": "namespace-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/node-controller",
+        "type": "Serviceaccount",
+        "name": "node-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/persistent-volume-binder",
+        "type": "Serviceaccount",
+        "name": "persistent-volume-binder",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/pod-garbage-collector",
+        "type": "Serviceaccount",
+        "name": "pod-garbage-collector",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/pv-protection-controller",
+        "type": "Serviceaccount",
+        "name": "pv-protection-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/pvc-protection-controller",
+        "type": "Serviceaccount",
+        "name": "pvc-protection-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/replicaset-controller",
+        "type": "Serviceaccount",
+        "name": "replicaset-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/replication-controller",
+        "type": "Serviceaccount",
+        "name": "replication-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/resourcequota-controller",
+        "type": "Serviceaccount",
+        "name": "resourcequota-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/root-ca-cert-publisher",
+        "type": "Serviceaccount",
+        "name": "root-ca-cert-publisher",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/service-account-controller",
+        "type": "Serviceaccount",
+        "name": "service-account-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/service-controller",
+        "type": "Serviceaccount",
+        "name": "service-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/statefulset-controller",
+        "type": "Serviceaccount",
+        "name": "statefulset-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/token-cleaner",
+        "type": "Serviceaccount",
+        "name": "token-cleaner",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/ttl-after-finished-controller",
+        "type": "Serviceaccount",
+        "name": "ttl-after-finished-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/ttl-controller",
+        "type": "Serviceaccount",
+        "name": "ttl-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/validatingadmissionpolicy-status-controller",
+        "type": "Serviceaccount",
+        "name": "validatingadmissionpolicy-status-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:local-path-storage/default",
+        "type": "Serviceaccount",
+        "name": "default",
+        "namespace": "local-path-storage",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:local-path-storage/local-path-provisioner-service-account",
+        "type": "Serviceaccount",
+        "name": "local-path-provisioner-service-account",
+        "namespace": "local-path-storage",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "secret:kube-system/bootstrap-token-abcdef",
+        "type": "Secret",
+        "name": "bootstrap-token-abcdef",
+        "namespace": "kube-system",
+        "risk_score": 1.35,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      },
+      {
+        "id": "configmap:default/kube-root-ca.crt",
+        "type": "Configmap",
+        "name": "kube-root-ca.crt",
+        "namespace": "default",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:kube-node-lease/kube-root-ca.crt",
+        "type": "Configmap",
+        "name": "kube-root-ca.crt",
+        "namespace": "kube-node-lease",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:kube-public/cluster-info",
+        "type": "Configmap",
+        "name": "cluster-info",
+        "namespace": "kube-public",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:kube-public/kube-root-ca.crt",
+        "type": "Configmap",
+        "name": "kube-root-ca.crt",
+        "namespace": "kube-public",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:kube-system/coredns",
+        "type": "Configmap",
+        "name": "coredns",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:kube-system/extension-apiserver-authentication",
+        "type": "Configmap",
+        "name": "extension-apiserver-authentication",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:kube-system/kube-apiserver-legacy-service-account-token-tracking",
+        "type": "Configmap",
+        "name": "kube-apiserver-legacy-service-account-token-tracking",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:kube-system/kube-proxy",
+        "type": "Configmap",
+        "name": "kube-proxy",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:kube-system/kube-root-ca.crt",
+        "type": "Configmap",
+        "name": "kube-root-ca.crt",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:kube-system/kubeadm-config",
+        "type": "Configmap",
+        "name": "kubeadm-config",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:kube-system/kubelet-config",
+        "type": "Configmap",
+        "name": "kubelet-config",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:local-path-storage/kube-root-ca.crt",
+        "type": "Configmap",
+        "name": "kube-root-ca.crt",
+        "namespace": "local-path-storage",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "configmap:local-path-storage/local-path-config",
+        "type": "Configmap",
+        "name": "local-path-config",
+        "namespace": "local-path-storage",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-public/kubeadm:bootstrap-signer-clusterinfo",
+        "type": "Role",
+        "name": "kubeadm:bootstrap-signer-clusterinfo",
+        "namespace": "kube-public",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "user:cluster/system:anonymous",
+        "type": "User",
+        "name": "system:anonymous",
+        "namespace": "kube-public",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-public/system:controller:bootstrap-signer",
+        "type": "Role",
+        "name": "system:controller:bootstrap-signer",
+        "namespace": "kube-public",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-system/kube-proxy",
+        "type": "Role",
+        "name": "kube-proxy",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "group:cluster/system:bootstrappers:kubeadm:default-node-token",
+        "type": "Group",
+        "name": "system:bootstrappers:kubeadm:default-node-token",
+        "namespace": "kube-system",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-system/kubeadm:kubelet-config",
+        "type": "Role",
+        "name": "kubeadm:kubelet-config",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "group:cluster/system:nodes",
+        "type": "Group",
+        "name": "system:nodes",
+        "namespace": "kube-system",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-system/kubeadm:nodes-kubeadm-config",
+        "type": "Role",
+        "name": "kubeadm:nodes-kubeadm-config",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-system/extension-apiserver-authentication-reader",
+        "type": "Role",
+        "name": "extension-apiserver-authentication-reader",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "user:cluster/system:kube-controller-manager",
+        "type": "User",
+        "name": "system:kube-controller-manager",
+        "namespace": "kube-system",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "user:cluster/system:kube-scheduler",
+        "type": "User",
+        "name": "system:kube-scheduler",
+        "namespace": "kube-system",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-system/system::leader-locking-kube-controller-manager",
+        "type": "Role",
+        "name": "system::leader-locking-kube-controller-manager",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/kube-controller-manager",
+        "type": "Serviceaccount",
+        "name": "kube-controller-manager",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/leader-election-controller",
+        "type": "Serviceaccount",
+        "name": "leader-election-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-system/system::leader-locking-kube-scheduler",
+        "type": "Role",
+        "name": "system::leader-locking-kube-scheduler",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/kube-scheduler",
+        "type": "Serviceaccount",
+        "name": "kube-scheduler",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-system/system:controller:bootstrap-signer",
+        "type": "Role",
+        "name": "system:controller:bootstrap-signer",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-system/system:controller:cloud-provider",
+        "type": "Role",
+        "name": "system:controller:cloud-provider",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/cloud-provider",
+        "type": "Serviceaccount",
+        "name": "cloud-provider",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role:kube-system/system:controller:token-cleaner",
+        "type": "Role",
+        "name": "system:controller:token-cleaner",
+        "namespace": "kube-system",
+        "risk_score": 0.45,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/cluster-admin",
+        "type": "Clusterrole",
+        "name": "cluster-admin",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "group:cluster/system:masters",
+        "type": "Group",
+        "name": "system:masters",
+        "namespace": "cluster",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/kindnet",
+        "type": "Clusterrole",
+        "name": "kindnet",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "group:cluster/kubeadm:cluster-admins",
+        "type": "Group",
+        "name": "kubeadm:cluster-admins",
+        "namespace": "cluster",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/kubeadm:get-nodes",
+        "type": "Clusterrole",
+        "name": "kubeadm:get-nodes",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:node-bootstrapper",
+        "type": "Clusterrole",
+        "name": "system:node-bootstrapper",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:certificates.k8s.io:certificatesigningrequests:nodeclient",
+        "type": "Clusterrole",
+        "name": "system:certificates.k8s.io:certificatesigningrequests:nodeclient",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:certificates.k8s.io:certificatesigningrequests:selfnodeclient",
+        "type": "Clusterrole",
+        "name": "system:certificates.k8s.io:certificatesigningrequests:selfnodeclient",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:node-proxier",
+        "type": "Clusterrole",
+        "name": "system:node-proxier",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/local-path-provisioner-role",
+        "type": "Clusterrole",
+        "name": "local-path-provisioner-role",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:basic-user",
+        "type": "Clusterrole",
+        "name": "system:basic-user",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "group:cluster/system:authenticated",
+        "type": "Group",
+        "name": "system:authenticated",
+        "namespace": "cluster",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:attachdetach-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:attachdetach-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:certificate-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:certificate-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:clusterrole-aggregation-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:clusterrole-aggregation-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:cronjob-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:cronjob-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:daemon-set-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:daemon-set-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:deployment-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:deployment-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:disruption-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:disruption-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:endpoint-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:endpoint-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:endpointslice-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:endpointslice-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:endpointslicemirroring-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:endpointslicemirroring-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:ephemeral-volume-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:ephemeral-volume-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:expand-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:expand-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:generic-garbage-collector",
+        "type": "Clusterrole",
+        "name": "system:controller:generic-garbage-collector",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:horizontal-pod-autoscaler",
+        "type": "Clusterrole",
+        "name": "system:controller:horizontal-pod-autoscaler",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:job-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:job-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:legacy-service-account-token-cleaner",
+        "type": "Clusterrole",
+        "name": "system:controller:legacy-service-account-token-cleaner",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:namespace-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:namespace-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:node-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:node-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:persistent-volume-binder",
+        "type": "Clusterrole",
+        "name": "system:controller:persistent-volume-binder",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:pod-garbage-collector",
+        "type": "Clusterrole",
+        "name": "system:controller:pod-garbage-collector",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:pv-protection-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:pv-protection-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:pvc-protection-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:pvc-protection-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:replicaset-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:replicaset-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:replication-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:replication-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:resourcequota-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:resourcequota-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:root-ca-cert-publisher",
+        "type": "Clusterrole",
+        "name": "system:controller:root-ca-cert-publisher",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:route-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:route-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/route-controller",
+        "type": "Serviceaccount",
+        "name": "route-controller",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:service-account-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:service-account-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:service-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:service-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:statefulset-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:statefulset-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:ttl-after-finished-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:ttl-after-finished-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:ttl-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:ttl-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:controller:validatingadmissionpolicy-status-controller",
+        "type": "Clusterrole",
+        "name": "system:controller:validatingadmissionpolicy-status-controller",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:coredns",
+        "type": "Clusterrole",
+        "name": "system:coredns",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:discovery",
+        "type": "Clusterrole",
+        "name": "system:discovery",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:kube-controller-manager",
+        "type": "Clusterrole",
+        "name": "system:kube-controller-manager",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:kube-dns",
+        "type": "Clusterrole",
+        "name": "system:kube-dns",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "serviceaccount:kube-system/kube-dns",
+        "type": "Serviceaccount",
+        "name": "kube-dns",
+        "namespace": "kube-system",
+        "risk_score": 1.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:kube-scheduler",
+        "type": "Clusterrole",
+        "name": "system:kube-scheduler",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:monitoring",
+        "type": "Clusterrole",
+        "name": "system:monitoring",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "group:cluster/system:monitoring",
+        "type": "Group",
+        "name": "system:monitoring",
+        "namespace": "cluster",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:node",
+        "type": "Clusterrole",
+        "name": "system:node",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "user:cluster/system:kube-proxy",
+        "type": "User",
+        "name": "system:kube-proxy",
+        "namespace": "cluster",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:public-info-viewer",
+        "type": "Clusterrole",
+        "name": "system:public-info-viewer",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "group:cluster/system:unauthenticated",
+        "type": "Group",
+        "name": "system:unauthenticated",
+        "namespace": "cluster",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:service-account-issuer-discovery",
+        "type": "Clusterrole",
+        "name": "system:service-account-issuer-discovery",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "group:cluster/system:serviceaccounts",
+        "type": "Group",
+        "name": "system:serviceaccounts",
+        "namespace": "cluster",
+        "risk_score": 0.3,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "clusterrole:cluster/system:volume-scheduler",
+        "type": "Clusterrole",
+        "name": "system:volume-scheduler",
+        "namespace": "cluster",
+        "risk_score": 0.65,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      }
+    ],
+    "edges": [
+      {
+        "source": "user:cluster/system:anonymous",
+        "target": "role:kube-public/kubeadm:bootstrap-signer-clusterinfo",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/bootstrap-signer",
+        "target": "role:kube-public/system:controller:bootstrap-signer",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:bootstrappers:kubeadm:default-node-token",
+        "target": "role:kube-system/kube-proxy",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:nodes",
+        "target": "role:kube-system/kubeadm:kubelet-config",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:bootstrappers:kubeadm:default-node-token",
+        "target": "role:kube-system/kubeadm:kubelet-config",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:bootstrappers:kubeadm:default-node-token",
+        "target": "role:kube-system/kubeadm:nodes-kubeadm-config",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:nodes",
+        "target": "role:kube-system/kubeadm:nodes-kubeadm-config",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "user:cluster/system:kube-controller-manager",
+        "target": "role:kube-system/extension-apiserver-authentication-reader",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "user:cluster/system:kube-scheduler",
+        "target": "role:kube-system/extension-apiserver-authentication-reader",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "user:cluster/system:kube-controller-manager",
+        "target": "role:kube-system/system::leader-locking-kube-controller-manager",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/kube-controller-manager",
+        "target": "role:kube-system/system::leader-locking-kube-controller-manager",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/leader-election-controller",
+        "target": "role:kube-system/system::leader-locking-kube-controller-manager",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "user:cluster/system:kube-scheduler",
+        "target": "role:kube-system/system::leader-locking-kube-scheduler",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/kube-scheduler",
+        "target": "role:kube-system/system::leader-locking-kube-scheduler",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/bootstrap-signer",
+        "target": "role:kube-system/system:controller:bootstrap-signer",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/cloud-provider",
+        "target": "role:kube-system/system:controller:cloud-provider",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/token-cleaner",
+        "target": "role:kube-system/system:controller:token-cleaner",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:masters",
+        "target": "clusterrole:cluster/cluster-admin",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/kindnet",
+        "target": "clusterrole:cluster/kindnet",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/kubeadm:cluster-admins",
+        "target": "clusterrole:cluster/cluster-admin",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:bootstrappers:kubeadm:default-node-token",
+        "target": "clusterrole:cluster/kubeadm:get-nodes",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:bootstrappers:kubeadm:default-node-token",
+        "target": "clusterrole:cluster/system:node-bootstrapper",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:bootstrappers:kubeadm:default-node-token",
+        "target": "clusterrole:cluster/system:certificates.k8s.io:certificatesigningrequests:nodeclient",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:nodes",
+        "target": "clusterrole:cluster/system:certificates.k8s.io:certificatesigningrequests:selfnodeclient",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/kube-proxy",
+        "target": "clusterrole:cluster/system:node-proxier",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:local-path-storage/local-path-provisioner-service-account",
+        "target": "clusterrole:cluster/local-path-provisioner-role",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:authenticated",
+        "target": "clusterrole:cluster/system:basic-user",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/attachdetach-controller",
+        "target": "clusterrole:cluster/system:controller:attachdetach-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/certificate-controller",
+        "target": "clusterrole:cluster/system:controller:certificate-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/clusterrole-aggregation-controller",
+        "target": "clusterrole:cluster/system:controller:clusterrole-aggregation-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/cronjob-controller",
+        "target": "clusterrole:cluster/system:controller:cronjob-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/daemon-set-controller",
+        "target": "clusterrole:cluster/system:controller:daemon-set-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/deployment-controller",
+        "target": "clusterrole:cluster/system:controller:deployment-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/disruption-controller",
+        "target": "clusterrole:cluster/system:controller:disruption-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/endpoint-controller",
+        "target": "clusterrole:cluster/system:controller:endpoint-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/endpointslice-controller",
+        "target": "clusterrole:cluster/system:controller:endpointslice-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/endpointslicemirroring-controller",
+        "target": "clusterrole:cluster/system:controller:endpointslicemirroring-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/ephemeral-volume-controller",
+        "target": "clusterrole:cluster/system:controller:ephemeral-volume-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/expand-controller",
+        "target": "clusterrole:cluster/system:controller:expand-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/generic-garbage-collector",
+        "target": "clusterrole:cluster/system:controller:generic-garbage-collector",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/horizontal-pod-autoscaler",
+        "target": "clusterrole:cluster/system:controller:horizontal-pod-autoscaler",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/job-controller",
+        "target": "clusterrole:cluster/system:controller:job-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/legacy-service-account-token-cleaner",
+        "target": "clusterrole:cluster/system:controller:legacy-service-account-token-cleaner",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/namespace-controller",
+        "target": "clusterrole:cluster/system:controller:namespace-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/node-controller",
+        "target": "clusterrole:cluster/system:controller:node-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/persistent-volume-binder",
+        "target": "clusterrole:cluster/system:controller:persistent-volume-binder",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/pod-garbage-collector",
+        "target": "clusterrole:cluster/system:controller:pod-garbage-collector",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/pv-protection-controller",
+        "target": "clusterrole:cluster/system:controller:pv-protection-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/pvc-protection-controller",
+        "target": "clusterrole:cluster/system:controller:pvc-protection-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/replicaset-controller",
+        "target": "clusterrole:cluster/system:controller:replicaset-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/replication-controller",
+        "target": "clusterrole:cluster/system:controller:replication-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/resourcequota-controller",
+        "target": "clusterrole:cluster/system:controller:resourcequota-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/root-ca-cert-publisher",
+        "target": "clusterrole:cluster/system:controller:root-ca-cert-publisher",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/route-controller",
+        "target": "clusterrole:cluster/system:controller:route-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/service-account-controller",
+        "target": "clusterrole:cluster/system:controller:service-account-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/service-controller",
+        "target": "clusterrole:cluster/system:controller:service-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/statefulset-controller",
+        "target": "clusterrole:cluster/system:controller:statefulset-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/ttl-after-finished-controller",
+        "target": "clusterrole:cluster/system:controller:ttl-after-finished-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/ttl-controller",
+        "target": "clusterrole:cluster/system:controller:ttl-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/validatingadmissionpolicy-status-controller",
+        "target": "clusterrole:cluster/system:controller:validatingadmissionpolicy-status-controller",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/coredns",
+        "target": "clusterrole:cluster/system:coredns",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:authenticated",
+        "target": "clusterrole:cluster/system:discovery",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "user:cluster/system:kube-controller-manager",
+        "target": "clusterrole:cluster/system:kube-controller-manager",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "serviceaccount:kube-system/kube-dns",
+        "target": "clusterrole:cluster/system:kube-dns",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "user:cluster/system:kube-scheduler",
+        "target": "clusterrole:cluster/system:kube-scheduler",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:monitoring",
+        "target": "clusterrole:cluster/system:monitoring",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "user:cluster/system:kube-proxy",
+        "target": "clusterrole:cluster/system:node-proxier",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:authenticated",
+        "target": "clusterrole:cluster/system:public-info-viewer",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:unauthenticated",
+        "target": "clusterrole:cluster/system:public-info-viewer",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "group:cluster/system:serviceaccounts",
+        "target": "clusterrole:cluster/system:service-account-issuer-discovery",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "user:cluster/system:kube-scheduler",
+        "target": "clusterrole:cluster/system:volume-scheduler",
+        "relationship": "binds_to",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:default/my-pod",
+        "target": "serviceaccount:default/default",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:default/my-pod2",
+        "target": "serviceaccount:default/default",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/coredns-7c65d6cfc9-4sw6h",
+        "target": "serviceaccount:kube-system/coredns",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/coredns-7c65d6cfc9-6ll6n",
+        "target": "serviceaccount:kube-system/coredns",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/etcd-desktop-control-plane",
+        "target": "serviceaccount:kube-system/default",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kindnet-42w2h",
+        "target": "serviceaccount:kube-system/kindnet",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kindnet-7hgf9",
+        "target": "serviceaccount:kube-system/kindnet",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kindnet-7rd6j",
+        "target": "serviceaccount:kube-system/kindnet",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kindnet-t8jpd",
+        "target": "serviceaccount:kube-system/kindnet",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kube-apiserver-desktop-control-plane",
+        "target": "serviceaccount:kube-system/default",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kube-controller-manager-desktop-control-plane",
+        "target": "serviceaccount:kube-system/default",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kube-proxy-8qqkf",
+        "target": "serviceaccount:kube-system/kube-proxy",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kube-proxy-9rtcm",
+        "target": "serviceaccount:kube-system/kube-proxy",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kube-proxy-pbjz4",
+        "target": "serviceaccount:kube-system/kube-proxy",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kube-proxy-z6fht",
+        "target": "serviceaccount:kube-system/kube-proxy",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:kube-system/kube-scheduler-desktop-control-plane",
+        "target": "serviceaccount:kube-system/default",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod:local-path-storage/local-path-provisioner-57c5987fd4-6bd2q",
+        "target": "serviceaccount:local-path-storage/local-path-provisioner-service-account",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      }
+    ]
+  },
+  "graph_hash": "f7e1d0e7108f298f",
+  "source": "kubectl",
+  "metadata": {}
+}

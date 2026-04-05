@@ -1,0 +1,91 @@
+{
+  "snapshot_id": "91f2348fec6fe9bc6d7cd6d2",
+  "timestamp": "2026-04-05T05:44:33.725098+00:00",
+  "cluster_data": {
+    "nodes": [
+      {
+        "id": "namespace:cluster/default",
+        "type": "Namespace",
+        "name": "default",
+        "namespace": "cluster",
+        "risk_score": 4.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "node:cluster/desktop-control-plane",
+        "type": "Node",
+        "name": "desktop-control-plane",
+        "namespace": "cluster",
+        "risk_score": 9.0,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      },
+      {
+        "id": "node:cluster/desktop-worker",
+        "type": "Node",
+        "name": "desktop-worker",
+        "namespace": "cluster",
+        "risk_score": 9.0,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      },
+      {
+        "id": "node:cluster/desktop-worker2",
+        "type": "Node",
+        "name": "desktop-worker2",
+        "namespace": "cluster",
+        "risk_score": 9.0,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      },
+      {
+        "id": "node:cluster/desktop-worker3",
+        "type": "Node",
+        "name": "desktop-worker3",
+        "namespace": "cluster",
+        "risk_score": 9.0,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      },
+      {
+        "id": "pod:default/my-pod",
+        "type": "Pod",
+        "name": "my-pod",
+        "namespace": "default",
+        "risk_score": 0.8,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "service:default/kubernetes",
+        "type": "Service",
+        "name": "kubernetes",
+        "namespace": "default",
+        "risk_score": 4.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      }
+    ],
+    "edges": [
+      {
+        "source": "pod:default/my-pod",
+        "target": "node:cluster/desktop-worker",
+        "relationship": "scheduled-on",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      }
+    ]
+  },
+  "graph_hash": "bbcce0e84ae48c5e",
+  "source": "kubectl",
+  "metadata": {}
+}

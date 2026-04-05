@@ -2,7 +2,7 @@
 Temporal Analysis Module for KubeAttackViz.
 
 Industry-grade continuous monitoring system that:
-  1. Periodically snapshots the cluster state (via kubectl or JSON).
+  1. Periodically snapshots the cluster state from JSON files.
   2. Stores snapshots in-memory with automatic disk persistence.
   3. Diffs consecutive snapshots to detect:
        - New/removed nodes
@@ -36,7 +36,7 @@ from typing import Any, Callable, Optional
 
 import networkx as nx
 
-from .ingestion import ingest_from_json, ingest_from_kubectl, export_graph_to_json
+from .ingestion import ingest_from_json, export_graph_to_json
 from .graph_builder import build_attack_graph, get_node_name, get_source_nodes, get_sink_nodes
 from .algorithms.dijkstra import shortest_attack_path, _severity_label
 from .models import AttackPath, ClusterGraph
@@ -58,7 +58,7 @@ class Snapshot:
         timestamp: ISO-8601 capture time.
         cluster_data: Serialized ClusterGraph dictionary.
         graph_hash: Content hash for quick equality check.
-        source: Origin of the snapshot ("kubectl", "json:<path>", etc.).
+        source: Origin of the snapshot ("json:<path>", etc.).
         metadata: Arbitrary metadata (cluster name, context, etc.).
     """
 
@@ -645,15 +645,15 @@ class Neo4jExporter:
 
     def __init__(
         self,
-        uri: str = "bolt://localhost:7687",
-        user: str = "neo4j",
-        password: str = "password",
-        database: str = "neo4j",
+        uri: str = "neo4j+s://e64992c1.databases.neo4j.io",
+        user: str = "e64992c1",
+        password: str = "qdcx2SZBRb7alCDWJqn1up5ByNl527G-SUdnvcbC9m0",
+        database: str | None = None,
     ):
         self._uri = uri
         self._user = user
         self._password = password
-        self._database = database
+        self._database = None
         self._driver = None
 
     def _get_driver(self):
@@ -925,7 +925,7 @@ class TemporalWatcher:
     Usage:
         watcher = TemporalWatcher(
             interval_seconds=300,
-            source="kubectl",
+            source="json:cluster-graph.json",
             neo4j_uri="bolt://localhost:7687",
         )
         watcher.start()  # Runs in background thread
@@ -940,7 +940,7 @@ class TemporalWatcher:
     def __init__(
         self,
         interval_seconds: int = 300,
-        source: str = "kubectl",
+        source: str = "json:cluster-graph.json",
         persist_dir: str | Path | None = None,
         max_snapshots: int = 100,
         neo4j_uri: str | None = None,
@@ -973,16 +973,16 @@ class TemporalWatcher:
             )
 
     def _capture_snapshot(self) -> Snapshot:
-        """Capture a snapshot from the configured source."""
-        if self.source == "kubectl":
-            cluster = ingest_from_kubectl()
-            return Snapshot.from_cluster(cluster, source="kubectl")
-        elif self.source.startswith("json:"):
+        """Capture a snapshot from the configured source (JSON file)."""
+        if self.source.startswith("json:"):
             filepath = self.source[5:]
             cluster = ingest_from_json(filepath)
             return Snapshot.from_cluster(cluster, source=f"json:{filepath}")
         else:
-            raise ValueError(f"Unknown source: {self.source}")
+            raise ValueError(
+                f"Unknown source: {self.source}. "
+                f"Use 'json:<path>' format (e.g. json:cluster-graph.json)."
+            )
 
     def scan_once(self) -> TemporalDiff | None:
         """Perform a single scan → snapshot → diff → alert cycle.

@@ -1,0 +1,295 @@
+{
+  "metadata": {
+    "cluster": "kind-newcluster",
+    "generated": "2026-04-05",
+    "node_count": 18,
+    "edge_count": 12,
+    "description": "Auto-generated cluster graph from live Kubernetes data"
+  },
+  "nodes": [
+    {
+      "id": "ns-default",
+      "type": "Namespace",
+      "name": "default",
+      "namespace": "cluster",
+      "risk_score": 4.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "node-newcluster-control-plane",
+      "type": "Node",
+      "name": "newcluster-control-plane",
+      "namespace": "cluster",
+      "risk_score": 9.0,
+      "is_source": false,
+      "is_sink": true,
+      "cves": []
+    },
+    {
+      "id": "node-newcluster-worker",
+      "type": "Node",
+      "name": "newcluster-worker",
+      "namespace": "cluster",
+      "risk_score": 9.0,
+      "is_source": false,
+      "is_sink": true,
+      "cves": []
+    },
+    {
+      "id": "pod-backend-7f5d966cb-2zt8f",
+      "type": "Pod",
+      "name": "backend-7f5d966cb-2zt8f",
+      "namespace": "default",
+      "risk_score": 6.5,
+      "is_source": false,
+      "is_sink": false,
+      "cves": [
+        "CVE-2023-41053",
+        "CVE-2023-45145",
+        "CVE-2023-41056",
+        "CVE-2024-31227",
+        "CVE-2024-31228"
+      ]
+    },
+    {
+      "id": "pod-frontend-68457cd5d9-5hgjq",
+      "type": "Pod",
+      "name": "frontend-68457cd5d9-5hgjq",
+      "namespace": "default",
+      "risk_score": 4.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "svc-backend-svc",
+      "type": "Service",
+      "name": "backend-svc",
+      "namespace": "default",
+      "risk_score": 6.5,
+      "is_source": true,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "svc-frontend-svc",
+      "type": "Service",
+      "name": "frontend-svc",
+      "namespace": "default",
+      "risk_score": 6.5,
+      "is_source": true,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "svc-kubernetes",
+      "type": "Service",
+      "name": "kubernetes",
+      "namespace": "default",
+      "risk_score": 4.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "deploy-backend",
+      "type": "Deployment",
+      "name": "backend",
+      "namespace": "default",
+      "risk_score": 4.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "deploy-frontend",
+      "type": "Deployment",
+      "name": "frontend",
+      "namespace": "default",
+      "risk_score": 4.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "cm-frontend-config",
+      "type": "ConfigMap",
+      "name": "frontend-config",
+      "namespace": "default",
+      "risk_score": 3.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "role-pod-reader",
+      "type": "Role",
+      "name": "pod-reader",
+      "namespace": "default",
+      "risk_score": 5.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "cr-admin",
+      "type": "ClusterRole",
+      "name": "admin",
+      "namespace": "cluster",
+      "risk_score": 8.5,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "cr-cluster-admin",
+      "type": "ClusterRole",
+      "name": "cluster-admin",
+      "namespace": "cluster",
+      "risk_score": 10.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "cr-edit",
+      "type": "ClusterRole",
+      "name": "edit",
+      "namespace": "cluster",
+      "risk_score": 8.5,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "cr-kindnet",
+      "type": "ClusterRole",
+      "name": "kindnet",
+      "namespace": "cluster",
+      "risk_score": 5.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "cr-local-path-provisioner-role",
+      "type": "ClusterRole",
+      "name": "local-path-provisioner-role",
+      "namespace": "cluster",
+      "risk_score": 5.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    },
+    {
+      "id": "cr-view",
+      "type": "ClusterRole",
+      "name": "view",
+      "namespace": "cluster",
+      "risk_score": 5.0,
+      "is_source": false,
+      "is_sink": false,
+      "cves": []
+    }
+  ],
+  "edges": [
+    {
+      "source": "pod-frontend-68457cd5d9-5hgjq",
+      "target": "cm-frontend-config",
+      "relationship": "reads",
+      "weight": 2.0,
+      "cve": null,
+      "cvss": null
+    },
+    {
+      "source": "pod-backend-7f5d966cb-2zt8f",
+      "target": "node-newcluster-worker",
+      "relationship": "scheduled-on",
+      "weight": 2.0,
+      "cve": "CVE-2023-41056",
+      "cvss": 8.1
+    },
+    {
+      "source": "pod-frontend-68457cd5d9-5hgjq",
+      "target": "node-newcluster-worker",
+      "relationship": "scheduled-on",
+      "weight": 2.0,
+      "cve": null,
+      "cvss": null
+    },
+    {
+      "source": "svc-backend-svc",
+      "target": "pod-backend-7f5d966cb-2zt8f",
+      "relationship": "routes-to",
+      "weight": 3.0,
+      "cve": "CVE-2023-41056",
+      "cvss": 8.1
+    },
+    {
+      "source": "svc-frontend-svc",
+      "target": "pod-frontend-68457cd5d9-5hgjq",
+      "relationship": "routes-to",
+      "weight": 3.0,
+      "cve": null,
+      "cvss": null
+    },
+    {
+      "source": "deploy-backend",
+      "target": "pod-backend-7f5d966cb-2zt8f",
+      "relationship": "creates",
+      "weight": 2.0,
+      "cve": "CVE-2023-41056",
+      "cvss": 8.1
+    },
+    {
+      "source": "deploy-frontend",
+      "target": "pod-frontend-68457cd5d9-5hgjq",
+      "relationship": "creates",
+      "weight": 2.0,
+      "cve": null,
+      "cvss": null
+    },
+    {
+      "source": "cr-admin",
+      "target": "ns-default",
+      "relationship": "admin-over",
+      "weight": 6.0,
+      "cve": null,
+      "cvss": null
+    },
+    {
+      "source": "cr-cluster-admin",
+      "target": "ns-default",
+      "relationship": "admin-over",
+      "weight": 6.0,
+      "cve": null,
+      "cvss": null
+    },
+    {
+      "source": "cr-edit",
+      "target": "ns-default",
+      "relationship": "admin-over",
+      "weight": 6.0,
+      "cve": null,
+      "cvss": null
+    },
+    {
+      "source": "cr-kindnet",
+      "target": "ns-default",
+      "relationship": "admin-over",
+      "weight": 6.0,
+      "cve": null,
+      "cvss": null
+    },
+    {
+      "source": "cr-view",
+      "target": "ns-default",
+      "relationship": "admin-over",
+      "weight": 6.0,
+      "cve": null,
+      "cvss": null
+    }
+  ]
+}

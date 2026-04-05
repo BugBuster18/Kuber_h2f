@@ -1,0 +1,138 @@
+{
+  "updated_at": "2026-04-05T06:08:42.593957+00:00",
+  "count": 22,
+  "snapshots": [
+    {
+      "snapshot_id": "e05a5d82dad3e86ae53c89b4",
+      "timestamp": "2026-04-05T05:38:37.739475+00:00",
+      "graph_hash": "51902c7fbe593b7a",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "70d3e158f8aacc26093a948e",
+      "timestamp": "2026-04-05T05:39:47.721675+00:00",
+      "graph_hash": "51902c7fbe593b7a",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "0f82f6eb9be154ae0ea43f17",
+      "timestamp": "2026-04-05T05:40:57.259692+00:00",
+      "graph_hash": "51902c7fbe593b7a",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "caa68b92286606a7ff1acf58",
+      "timestamp": "2026-04-05T05:42:06.753828+00:00",
+      "graph_hash": "51902c7fbe593b7a",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "2b95f778dbc18f7e070b40c6",
+      "timestamp": "2026-04-05T05:43:18.819513+00:00",
+      "graph_hash": "bbcce0e84ae48c5e",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "91f2348fec6fe9bc6d7cd6d2",
+      "timestamp": "2026-04-05T05:44:33.725098+00:00",
+      "graph_hash": "bbcce0e84ae48c5e",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "54ea65fd07fc93fc567df931",
+      "timestamp": "2026-04-05T05:45:44.396558+00:00",
+      "graph_hash": "bbcce0e84ae48c5e",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "69c89d0340f05597a397b214",
+      "timestamp": "2026-04-05T05:46:53.942659+00:00",
+      "graph_hash": "bbcce0e84ae48c5e",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "a3c55685c36a88aa17e643f8",
+      "timestamp": "2026-04-05T05:55:55.407106+00:00",
+      "graph_hash": "9a1ddb7113c92886",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "6e0756af72b33855cafd354c",
+      "timestamp": "2026-04-05T05:56:59.871765+00:00",
+      "graph_hash": "9a1ddb7113c92886",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "c6dd9d47f46d4d00597b8406",
+      "timestamp": "2026-04-05T05:57:23.134347+00:00",
+      "graph_hash": "9a1ddb7113c92886",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "9c1b79a27f7e5d9f3ae75c11",
+      "timestamp": "2026-04-05T05:58:24.451847+00:00",
+      "graph_hash": "f7e1d0e7108f298f",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "e6e8e800590ff4e77716bf99",
+      "timestamp": "2026-04-05T05:59:27.109158+00:00",
+      "graph_hash": "f7e1d0e7108f298f",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "9fad9a0a8dadab555d75a5dd",
+      "timestamp": "2026-04-05T06:00:25.768371+00:00",
+      "graph_hash": "f7e1d0e7108f298f",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "a7ae8d1048a7c590d317eb7f",
+      "timestamp": "2026-04-05T06:01:27.060741+00:00",
+      "graph_hash": "61a553360772001f",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "ca6166cf2c6de5b18f3579ab",
+      "timestamp": "2026-04-05T06:02:31.261413+00:00",
+      "graph_hash": "61a553360772001f",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "0c91d8cbbd7cd40557d86c77",
+      "timestamp": "2026-04-05T06:03:33.417852+00:00",
+      "graph_hash": "61a553360772001f",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "e054e061fd7e55b2cbe3d796",
+      "timestamp": "2026-04-05T06:04:34.937912+00:00",
+      "graph_hash": "61a553360772001f",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "ed743459f6823c0caf5db2fa",
+      "timestamp": "2026-04-05T06:05:36.593549+00:00",
+      "graph_hash": "61a553360772001f",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "cc0d9d9482445b2f952137f0",
+      "timestamp": "2026-04-05T06:06:37.929952+00:00",
+      "graph_hash": "ecf57ce878b01e78",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "26b392e72782377103528b01",
+      "timestamp": "2026-04-05T06:07:40.792533+00:00",
+      "graph_hash": "ecf57ce878b01e78",
+      "source": "kubectl"
+    },
+    {
+      "snapshot_id": "45257da2ecbbce8c742b465f",
+      "timestamp": "2026-04-05T06:08:42.582561+00:00",
+      "graph_hash": "ecf57ce878b01e78",
+      "source": "kubectl"
+    }
+  ]
+}
