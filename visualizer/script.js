@@ -15,24 +15,24 @@
 // ─── Constants ──────────────────────────────────────────────────────────────
 
 const NODE_COLORS = {
-    pod:                  '#4A90D9',
-    service:              '#2ECC71',
-    serviceaccount:       '#E8833A',
-    role:                 '#9B59B6',
-    clusterrole:          '#8E44AD',
-    rolebinding:          '#F39C12',
-    clusterrolebinding:   '#E67E22',
-    secret:               '#E74C3C',
-    configmap:            '#1ABC9C',
-    database:             '#E74C3C',
-    node:                 '#34495E',
-    ingress:              '#3498DB',
+    pod:                  '#0284C7',
+    service:              '#16A34A',
+    serviceaccount:       '#EA580C',
+    role:                 '#7C3AED',
+    clusterrole:          '#6D28D9',
+    rolebinding:          '#D97706',
+    clusterrolebinding:   '#B45309',
+    secret:               '#DC2626',
+    configmap:            '#0D9488',
+    database:             '#E11D48',
+    node:                 '#334155',
+    ingress:              '#2563EB',
 };
 
-const DEFAULT_NODE_COLOR = '#95A5A6';
-const ATTACK_PATH_COLOR  = '#ff4757';
-const CYCLE_EDGE_COLOR   = '#ffa502';
-const CRITICAL_NODE_COLOR = '#FFD700';
+const DEFAULT_NODE_COLOR = '#64748B';
+const ATTACK_PATH_COLOR  = '#DC2626';
+const CYCLE_EDGE_COLOR   = '#EA580C';
+const CRITICAL_NODE_COLOR = '#D97706';
 
 const BASE_RADIUS     = 8;
 const SOURCE_RADIUS   = 12;
@@ -165,6 +165,16 @@ function initControls() {
     document.getElementById('btn-zoom-out').addEventListener('click', zoomOut);
     document.getElementById('btn-zoom-reset').addEventListener('click', resetZoom);
 
+    // Rail file upload
+    const railInput = document.getElementById('rail-file-input');
+    if (railInput) {
+        railInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                loadFile(e.target.files[0]);
+            }
+        });
+    }
+
     // Auto-load graph data
     loadDemoData();
 }
@@ -197,6 +207,7 @@ async function loadDemoData() {
 
 function loadGraphData(data) {
     graphData = data;
+    window.graphData = data;
 
     // Populate stats
     document.getElementById('node-count').textContent  = (data.nodes || []).length;
@@ -271,6 +282,8 @@ function renderPathCards(paths) {
 
         const names = (path.path_names || []).join(' → ');
         const severity = path.severity || 'LOW';
+        const hops = path.hop_count || ((path.path_nodes || []).length - 1);
+        const risk = (path.total_risk || 0).toFixed(1);
 
         card.innerHTML = `
             <div class="path-card-header">
@@ -278,9 +291,37 @@ function renderPathCards(paths) {
                 <span class="sev sev-${severity}">${severity}</span>
             </div>
             <div class="path-card-route">${names}</div>
+            <div class="path-card-footer">
+                <span style="font-size:0.68rem; color:var(--text-3); font-family:'JetBrains Mono',monospace">${hops} hops • Risk ${risk}</span>
+                <button type="button" class="btn-explain-nlp" data-idx="${idx}" title="Explain this attack path in plain English">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Explain
+                </button>
+            </div>
         `;
 
-        card.addEventListener('click', () => togglePathHighlight(idx));
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-explain-nlp')) return;
+            togglePathHighlight(idx);
+        });
+
+        const explainBtn = card.querySelector('.btn-explain-nlp');
+        if (explainBtn) {
+            explainBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof explainAttackPathNLP === 'function') {
+                    const explanation = explainAttackPathNLP(path, graphData);
+                    if (typeof openNlpExplanationModal === 'function') {
+                        openNlpExplanationModal({
+                            type: 'attack_path',
+                            data: explanation,
+                            highlightPath: path
+                        });
+                    }
+                }
+            });
+        }
+
         list.appendChild(card);
     });
 }
@@ -393,11 +434,11 @@ function renderGraph(data) {
         .attr('fill', d => NODE_COLORS[d.type] || DEFAULT_NODE_COLOR)
         .attr('stroke', d => {
             if (criticalNodeIds.has(d.id)) return CRITICAL_NODE_COLOR;
-            if (d.is_source) return '#3FB950';
-            if (d.is_sink) return '#F85149';
-            return 'rgba(255,255,255,0.15)';
+            if (d.is_source) return '#16A34A';
+            if (d.is_sink) return '#DC2626';
+            return '#FFFFFF';
         })
-        .style('filter', d => criticalNodeIds.has(d.id) ? 'url(#glow)' : 'none')
+        .style('filter', d => criticalNodeIds.has(d.id) ? 'drop-shadow(0 2px 6px rgba(217, 119, 6, 0.35))' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.15))')
         .call(d3.drag()
             .on('start', dragStarted)
             .on('drag', dragged)
@@ -703,7 +744,39 @@ function showDetailPanel(d) {
                 }).join('') || '<li>No attack paths pass through this node.</li>'}
             </ul>
         </div>
+
+        <div style="margin-top: 14px;">
+            <button type="button" class="btn btn-primary" id="btn-node-nlp-explain" style="width: 100%; justify-content: center; gap: 6px; font-size: 0.78rem;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Analyze Exposure with NLP
+            </button>
+        </div>
     `;
+
+    const nlpBtn = document.getElementById('btn-node-nlp-explain');
+    if (nlpBtn) {
+        nlpBtn.addEventListener('click', () => {
+            if (pathsThrough.length > 0 && typeof explainAttackPathNLP === 'function') {
+                const explanation = explainAttackPathNLP(pathsThrough[0], graphData);
+                if (typeof openNlpExplanationModal === 'function') {
+                    openNlpExplanationModal({
+                        type: 'attack_path',
+                        data: explanation,
+                        highlightPath: pathsThrough[0]
+                    });
+                }
+            } else if (typeof explainBlastRadiusNLP === 'function') {
+                const blastExpl = explainBlastRadiusNLP(d.id, graphData);
+                if (blastExpl && typeof openNlpExplanationModal === 'function') {
+                    openNlpExplanationModal({
+                        type: 'blast_radius',
+                        data: blastExpl,
+                        highlightNodeId: d.id
+                    });
+                }
+            }
+        });
+    }
 }
 
 // ─── Toggle Visibility ──────────────────────────────────────────────────────
@@ -728,13 +801,13 @@ function updateVisibility() {
 
     // Critical node styling
     d3.selectAll('.critical-node')
-        .style('filter', showCritical ? 'url(#glow)' : 'none')
+        .style('filter', showCritical ? 'drop-shadow(0 2px 6px rgba(217, 119, 6, 0.35))' : 'none')
         .attr('stroke', d => {
-            if (!showCritical && criticalNodeIds.has(d.id)) return 'rgba(255,255,255,0.15)';
+            if (!showCritical && criticalNodeIds.has(d.id)) return '#FFFFFF';
             if (criticalNodeIds.has(d.id)) return CRITICAL_NODE_COLOR;
-            if (d.is_source) return '#3FB950';
-            if (d.is_sink) return '#F85149';
-            return 'rgba(255,255,255,0.15)';
+            if (d.is_source) return '#16A34A';
+            if (d.is_sink) return '#DC2626';
+            return '#FFFFFF';
         })
         .attr('r', d => {
             if (!showCritical && criticalNodeIds.has(d.id)) return BASE_RADIUS;

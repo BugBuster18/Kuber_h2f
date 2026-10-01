@@ -7,15 +7,15 @@
     <title>KubeAttackViz — Attack Surface Intelligence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=2.1">
 </head>
 <body>
     <!-- ── Top Bar ─────────────────────────────────────────────────────── -->
     <nav id="topbar">
         <div class="topbar-brand">
             <div class="brand-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 2L2 7l10 5 10-5-10-5z"/>
                     <path d="M2 17l10 5 10-5"/>
                     <path d="M2 12l10 5 10-5"/>
@@ -58,19 +58,19 @@
                 <div class="rail-label">Overlays</div>
                 <label class="rail-toggle" title="Attack Paths">
                     <input type="checkbox" id="toggle-paths" checked>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                 </label>
                 <label class="rail-toggle" title="Cycles">
                     <input type="checkbox" id="toggle-cycles" checked>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0118.8-4.3"/><path d="M21.5 12.5a10 10 0 01-18.8 4.3"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0118.8-4.3"/><path d="M21.5 12.5a10 10 0 01-18.8 4.3"/></svg>
                 </label>
                 <label class="rail-toggle" title="Labels">
                     <input type="checkbox" id="toggle-labels" checked>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                 </label>
                 <label class="rail-toggle" title="Critical Nodes">
                     <input type="checkbox" id="toggle-critical" checked>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 </label>
             </div>
 
@@ -78,20 +78,52 @@
             <div class="rail-section">
                 <div class="rail-label">Types</div>
                 <div class="rail-legend">
-                    <span class="rl-dot" style="--c:#4A90D9" title="Pod"></span>
-                    <span class="rl-dot" style="--c:#E8833A" title="ServiceAccount"></span>
-                    <span class="rl-dot" style="--c:#9B59B6" title="Role"></span>
-                    <span class="rl-dot" style="--c:#E74C3C" title="Secret"></span>
-                    <span class="rl-dot" style="--c:#2ECC71" title="Service"></span>
-                    <span class="rl-dot" style="--c:#8E44AD" title="ClusterRole"></span>
-                    <span class="rl-dot" style="--c:#1ABC9C" title="ConfigMap"></span>
-                    <span class="rl-dot" style="--c:#34495E" title="Node"></span>
+                    <span class="rl-dot" style="--c:#0284C7" title="Pod"></span>
+                    <span class="rl-dot" style="--c:#EA580C" title="ServiceAccount"></span>
+                    <span class="rl-dot" style="--c:#7C3AED" title="Role"></span>
+                    <span class="rl-dot" style="--c:#DC2626" title="Secret"></span>
+                    <span class="rl-dot" style="--c:#16A34A" title="Service"></span>
+                    <span class="rl-dot" style="--c:#6D28D9" title="ClusterRole"></span>
+                    <span class="rl-dot" style="--c:#0D9488" title="ConfigMap"></span>
+                    <span class="rl-dot" style="--c:#334155" title="Node"></span>
                 </div>
+            </div>
+
+            <!-- File Upload / Reload Tool -->
+            <div class="rail-section" style="margin-top:auto">
+                <label class="rail-toggle" title="Load JSON File">
+                    <input type="file" id="rail-file-input" accept=".json" style="display:none">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </label>
             </div>
         </aside>
 
         <!-- Graph Canvas -->
         <div id="graph-container">
+            <!-- NLP Security Reasoning Search Bar -->
+            <div class="nlp-bar-container">
+                <form id="nlp-search-form" class="nlp-search-box">
+                    <div class="nlp-search-icon">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </div>
+                    <input type="text" id="nlp-search-input" class="nlp-search-input" placeholder="Ask in plain English (e.g., 'How can web-frontend reach prod-database?', 'Explain chokepoints')..." autocomplete="off">
+                    <button type="submit" class="nlp-btn-ask">
+                        <span>Explain</span>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                </form>
+                <div class="nlp-chips-row">
+                    <button type="button" class="nlp-chip" data-query="How can web-frontend reach prod-database?">Path: web-frontend ➔ database</button>
+                    <button type="button" class="nlp-chip" data-query="What are the critical chokepoints?">Top Chokepoints</button>
+                    <button type="button" class="nlp-chip" data-query="Explain blast radius of web-frontend">Blast Radius: frontend</button>
+                    <button type="button" class="nlp-chip" data-query="Show lateral movement cycles">Lateral Cycles</button>
+                    <button type="button" class="nlp-chip" data-query="Which paths exploit high severity CVEs?">Exploitable CVEs</button>
+                </div>
+            </div>
+
             <svg id="graph-svg"></svg>
 
             <!-- Tooltip -->
@@ -213,7 +245,7 @@
             </div>
             <div class="timeline-track" id="timeline-track">
                 <div class="tl-empty-state">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.25"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     <p>No snapshots loaded.</p>
                     <p class="tl-hint">Run <code>python main.py temporal-snapshot -i cluster-graph.json</code> to capture snapshots, then drag the files here.</p>
                 </div>
@@ -226,7 +258,8 @@
     </main>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="script.js"></script>
-    <script src="dashboard.js"></script>
+    <script src="script.js?v=2.1"></script>
+    <script src="dashboard.js?v=2.1"></script>
+    <script src="nlp-engine.js?v=2.1"></script>
 </body>
 </html>

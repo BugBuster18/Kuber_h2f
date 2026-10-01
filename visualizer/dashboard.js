@@ -184,6 +184,12 @@ function populateDashboard(data) {
                 <td class="td-mono">${p.advanced_score ?? '—'}</td>
                 <td>${cats}</td>
                 <td class="td-mono" style="font-size:.68rem">${cveStr}</td>
+                <td>
+                    <button type="button" class="btn-explain-nlp btn-table-explain" data-idx="${i}" title="Explain this attack path in plain English">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        Explain
+                    </button>
+                </td>
             </tr>`;
         }).join('');
 
@@ -191,10 +197,28 @@ function populateDashboard(data) {
             <table class="data-table">
                 <thead><tr>
                     <th>#</th><th>Severity</th><th>Path</th><th>Hops</th>
-                    <th>Risk</th><th>Score</th><th>Category</th><th>CVEs</th>
+                    <th>Risk</th><th>Score</th><th>Category</th><th>CVEs</th><th>Action</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
+
+        // Wire up table explain buttons
+        pathBody.querySelectorAll('.btn-table-explain').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.dataset.idx, 10);
+                const pathObj = paths[idx];
+                if (pathObj && typeof explainAttackPathNLP === 'function') {
+                    const explanation = explainAttackPathNLP(pathObj, data);
+                    if (typeof openNlpExplanationModal === 'function') {
+                        openNlpExplanationModal({
+                            type: 'attack_path',
+                            data: explanation,
+                            highlightPath: pathObj
+                        });
+                    }
+                }
+            });
+        });
     }
 
     // ── CVE Intelligence Grid ───────────────────────────────────
