@@ -106,10 +106,12 @@ def build_attack_graph(
             scored = learned.score_edge(
                 src.type, edge.relationship, tgt.type,
                 edge_cve=edge.cve, edge_cvss=edge.cvss, target_cves=tgt.cves,
+                features=edge.features,
             )
             effective_cost = scored["weight"]
             extra = {
                 "p_success": scored["p_success"],
+                "weight_basis": scored["weight_basis"],
                 "category": scored["category"],
                 "p_exploit": scored["p_exploit"],
                 "exploit_cve": scored["exploit_cve"],

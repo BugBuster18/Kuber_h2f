@@ -872,7 +872,7 @@ def cmd_ml_edges(
         if e.source not in nodes or e.target not in nodes:
             continue
         s, t = nodes[e.source], nodes[e.target]
-        sc = scorer.score_edge(s.type, e.relationship, t.type, e.cve, e.cvss, t.cves)
+        sc = scorer.score_edge(s.type, e.relationship, t.type, e.cve, e.cvss, t.cves, features=e.features)
         rows.append({"source": s.name, "target": t.name, "relationship": e.relationship,
                      "static_weight": e.weight, **sc})
     rows.sort(key=lambda r: r["weight"])
@@ -880,12 +880,12 @@ def cmd_ml_edges(
     _out("=" * 108)
     _out("  LEARNED EDGE WEIGHTS  (weight = -ln P(success); lower = easier for an attacker)")
     _out("=" * 108)
-    _out(f"  {'Edge':<46}{'Category':<23}{'P(succ)':>8}{'Learned':>9}{'Static':>8}  Exploit evidence")
+    _out(f"  {'Edge':<46}{'Basis':<15}{'P(succ)':>8}{'Learned':>9}{'Static':>8}  Exploit evidence")
     _out("  " + "-" * 106)
     for r in rows:
         edge = f"{r['source']} ─[{r['relationship']}]→ {r['target']}"
         ev = f"{r['exploit_cve']} p={r['p_exploit']:.3f} ({r['exploit_evidence']})" if r["exploit_cve"] or r["p_exploit"] else ""
-        _out(f"  {edge[:45]:<46}{r['category']:<23}{r['p_success']:>8.3f}{r['weight']:>9.2f}{r['static_weight']:>8.1f}  {ev}")
+        _out(f"  {edge[:45]:<46}{r['weight_basis']:<15}{r['p_success']:>8.3f}{r['weight']:>9.2f}{r['static_weight']:>8.1f}  {ev}")
     _out("=" * 108)
 
     if output_json:
@@ -925,6 +925,11 @@ def main(
         False, "--online-cve", envvar="KAV_ONLINE_CVE",
         help="Learned weights: fetch unknown CVEs' NVD records online (cached).",
     ),
+    p_unknown: Optional[float] = typer.Option(
+        None, "--p-unknown", envvar="KAV_P_UNKNOWN", min=0.001, max=0.999,
+        help="Learned weights: assumed P(foothold) on a reachable workload with NO known CVE "
+             "(scenario parameter, not measured; default 0.05).",
+    ),
 ):
     """🛡️  KubeAttackViz v2.0 — Kubernetes Attack Path Visualizer
 
@@ -943,5 +948,5 @@ def main(
             console.print("[bold red]❌ Learned weights need trained models.[/] "
                           "Run: python main.py ml-fetch-data && python main.py ml-train")
             raise typer.Exit(code=1)
-        get_learned_weights(allow_network=online_cve)
+        get_learned_weights(allow_network=online_cve, p_unknown=p_unknown)
     set_default_weight_mode(weights)

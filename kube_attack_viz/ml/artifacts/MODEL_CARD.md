@@ -1,20 +1,20 @@
 # KubeAttackViz — Learned Edge Weights: Model Card
 
-Generated 2026-11-10T09:23:28 UTC · ml v1.0.0 · scikit-learn 1.7.2
+Generated 2026-11-10T12:19:18 UTC · ml v1.0.0 · scikit-learn 1.7.2
 
 ## What it does
 Each attack-graph edge gets a traversal probability `P(edge)` and weight `-ln P(edge)`.
 Dijkstra's cheapest path is then the **most probable** path, `P(path) = exp(-cost)`,
 and path risk = `target impact × P(path)` (expected impact, 0–10).
 
-```
-P(edge) = 1 - (1 - prior[category]) * (1 - p_exploit)
-```
+Each edge's probability has a reported **basis**:
 
-| Part | Source |
-|---|---|
-| `p_exploit` | **Learned** — CVE exploitation model below |
-| `prior[category]` | **Assumed** — documented priors (no public hop-level outcome dataset exists) |
+| Basis | When | P(edge) |
+|---|---|---|
+| `exact-config` | Feasibility decided by configuration (RBAC grant, mounted token, routing, privileged pod) | 0.995 |
+| `cve-model` | Conditional edge with a known CVE | `1 − (1 − p_unknown)(1 − p_exploit)` — `p_exploit` **learned** (below) |
+| `scenario-param` | Conditional edge, no CVE evidence | `p_unknown` = 0.05 by default (`--p-unknown`) — an **assumption**, not a measurement |
+| `legacy-prior` | Hand-made graph JSON without feasibility info | assumed per-category priors (table at the end) |
 
 ## CVE exploitation model
 * **Task:** P(CVE is exploited in the wild). Label = listed in CISA KEV (catalog 2026.11.09).
@@ -47,10 +47,11 @@ Out-of-fold (all years, 5-fold): ROC-AUC 0.936, PR-AUC 0.309.
 ## Limitations
 * KEV is a *lower bound* on exploitation; probabilities are conservative.
 * Recent CVEs have had less time to be added to KEV (label lag), so test-set base rate is lower than training.
-* Category priors are assumptions, not measurements. Replace them with rates from your own
-  assessment data in `kube_attack_viz/ml/weights.py` (`EDGE_PRIORS`).
+* `p_unknown` (chance of a foothold with no known CVE) has no public measurement. Absolute path
+  probabilities scale with it; rankings are what the evaluation checks for stability.
+* Legacy priors apply only to graphs without feasibility information.
 
-## Edge category priors
+## Legacy category priors (graphs without feasibility information only)
 | Category | Prior P(success) |
 |---|---|
 | endpoint_reachability | 0.95 |

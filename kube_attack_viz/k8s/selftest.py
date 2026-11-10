@@ -121,7 +121,10 @@ def run_k8s_tests(result) -> None:
         assert ("rolebinding:payments/payments-read", "secret:payments/api-key", "can_read") not in E
         assert ("rolebinding:payments/payments-read", "secret:payments/db-creds", "can_read") in E
         host = E[("pod:shop/debug-pod", "node:cluster/worker-1", "host_access")]
-        assert host.features["feasibility"] == "conditional" and "privileged" in host.evidence
+        assert host.features["feasibility"] == "exact" and "privileged" in host.evidence, \
+            "privileged pod → node is decided by configuration"
+        weak = E[("pod:payments/payments-api", "node:cluster/worker-1", "host_access")]
+        assert weak.features["feasibility"] == "conditional", "NET_ADMIN alone is not decisive"
         assert E[("rolebinding:shop/web-config", "secret:shop/web-tls", "can_read")].features["feasibility"] == "exact"
 
         G = build_attack_graph(cg, weight_mode="static")

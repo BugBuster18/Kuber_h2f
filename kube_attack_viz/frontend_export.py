@@ -72,6 +72,7 @@ def export_for_frontend(
             "cvss": data.get("cvss"),
             **({
                 "p_success": round(data["p_success"], 4),
+                "weight_basis": data.get("weight_basis"),
                 "category": data.get("category"),
                 "p_exploit": None if data.get("p_exploit") is None else round(data["p_exploit"], 4),
                 "exploit_evidence": data.get("exploit_evidence"),

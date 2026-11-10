@@ -1,6 +1,6 @@
 {
   "ml_version": "1.0.0",
-  "generated_at": "2026-11-10T09:23:28.515732+00:00",
+  "generated_at": "2026-11-10T12:19:18.354995+00:00",
   "cve_model": {
     "task": "P(CVE is exploited in the wild), label = listed in CISA KEV",
     "algorithm": "HistGradientBoostingClassifier (scikit-learn), log-loss objective",
@@ -102,10 +102,15 @@
     "kev_catalog_version": "2026.11.09"
   },
   "edge_weights": {
-    "formula": "P(edge) = 1 - (1 - prior[category]) * (1 - p_exploit); weight = -ln P(edge)",
+    "weight": "-ln P(edge)",
+    "bases": {
+      "exact-config": "feasibility decided by configuration (k8s engine): P = 0.995",
+      "cve-model": "conditional edge with a known CVE: 1 - (1 - p_unknown) * (1 - p_exploit)",
+      "scenario-param": "conditional edge, no CVE: P = p_unknown (default 0.05; an assumption, not a measurement)",
+      "legacy-prior": "graph JSON without feasibility info: assumed per-category priors"
+    },
     "learned_component": "p_exploit from the CVE model",
-    "assumed_component": "prior[category] (no public hop-level outcome data exists)",
-    "priors": {
+    "legacy_priors": {
       "endpoint_reachability": 0.95,
       "workload_entry": 0.06,
       "workload_to_workload": 0.08,

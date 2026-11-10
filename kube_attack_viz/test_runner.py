@@ -420,6 +420,27 @@ def run_all_tests() -> TestResult:
         except (AssertionError, ValueError, KeyError) as e:
             result.fail("CVE exploit predictor", str(e))
 
+    # ── Test 28: feasibility-aware learned weights ───────────────────────────
+    if models_available():
+        try:
+            from .ml.weights import LearnedEdgeWeights, P_MAX
+            w = LearnedEdgeWeights(allow_network=False, p_unknown=0.2)
+            ex = w.score_edge("rolebinding", "can_read", "secret", features={"feasibility": "exact"})
+            assert ex["weight_basis"] == "exact-config" and ex["p_success"] == P_MAX
+            sc = w.score_edge("service", "routes_to", "pod", features={"feasibility": "conditional"})
+            assert sc["weight_basis"] == "scenario-param" and abs(sc["p_success"] - 0.2) < 1e-12
+            cv = w.score_edge("service", "routes_to", "pod", target_cves=["CVE-2023-44487"],
+                              features={"feasibility": "conditional"})
+            assert cv["weight_basis"] == "cve-model" and cv["p_success"] > sc["p_success"]
+            lg = w.score_edge("ingress", "routes_to", "pod")
+            assert lg["weight_basis"] == "legacy-prior" and lg["prior"] == 0.06
+            w2 = LearnedEdgeWeights(allow_network=False, p_unknown=0.01)
+            assert w2.score_edge("service", "routes_to", "pod",
+                                 features={"feasibility": "conditional"})["p_success"] == 0.01
+            result.ok("Learned weights: exact→P_MAX, conditional→CVE model / scenario param, legacy→priors")
+        except (AssertionError, KeyError) as e:
+            result.fail("Feasibility-aware weights", str(e))
+
     # ── Tests 21-27: exact feasibility engine (kube_attack_viz/k8s) ──────────
     from .k8s.selftest import run_k8s_tests
     run_k8s_tests(result)

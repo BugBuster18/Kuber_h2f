@@ -274,20 +274,23 @@ not silently skipped.
 ## 🧠 Learned Edge Weights
 
 Static edge weights are hand-tuned guesses. With `--weights learned`, each edge gets a
-**traversal probability** and weight `-ln P(success)`:
+**traversal probability** and weight `-ln P(success)`, with a reported **basis**:
 
-```
-P(edge) = 1 - (1 - prior[category]) * (1 - p_exploit)
-weight  = -ln P(edge)
-```
+| Basis | When | P(edge) |
+|---|---|---|
+| `exact-config` | Configuration decides the transition (live clusters / raw dumps) | ≈ 1 |
+| `cve-model` | Conditional edge (e.g. entering a reachable workload) with a known CVE | `1 − (1 − p_unknown)(1 − p_exploit)` |
+| `scenario-param` | Conditional edge, no known CVE | `p_unknown` (default 0.05, `--p-unknown`) — an assumption |
+| `legacy-prior` | Hand-made graph JSON without feasibility info | per-category priors (assumed) |
 
 * Dijkstra's cheapest path becomes the attacker's **most probable** path; `P(path) = exp(-cost)`.
 * Path risk becomes **expected impact** = `target impact × P(path)` (0–10).
 * `p_exploit` is **learned**: probability the CVE on the edge — or on the workload it enters —
   is exploited in the wild, from a gradient-boosted model trained on **361k real NVD CVE records**
   labelled with the **CISA Known Exploited Vulnerabilities** catalog.
-* `prior[category]` is a documented assumption per edge category (`ml/weights.py`). There is no
-  public dataset of hop-level outcomes; replace priors with rates from your own assessments.
+* `p_unknown` — the chance of a foothold where no CVE is known — has no public measurement.
+  It scales absolute probabilities; sweep it (`--p-unknown 0.01 … 0.3`) to see which conclusions
+  depend on it. Graphs from live clusters use it only on `conditional` edges.
 
 ```bash
 python main.py ml-edges -i presentation-cluster-drift.json          # inspect weights

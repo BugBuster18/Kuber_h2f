@@ -193,9 +193,14 @@ def build_cluster_graph(inv: Inventory) -> ClusterGraph:
         ha = host_access(pod)
         if ha.breaks_host_boundary and pod.node_name:
             nid = b.node("node", None, pod.node_name, sink=True)
+            # Kubernetes documents privileged containers as having host-level
+            # access by design (PSS: "Privileged Pods disable most security
+            # mechanisms"), so that case is decided by configuration. Other
+            # baseline violations weaken isolation without deciding the outcome.
             b.edge(pod_ids[(pod.namespace, pod.name)], nid, "host_access",
                    "PSS baseline violations: " + ", ".join(ha.baseline_violations),
-                   {**b.nodes[pod_ids[(pod.namespace, pod.name)]].properties})
+                   {**b.nodes[pod_ids[(pod.namespace, pod.name)]].properties,
+                    "feasibility": "exact" if ha.privileged else "conditional"})
 
     # ── Pod → Pod network reachability (targets = pods behind a Service) ──
     listening = {(p.namespace, p.name): p for pods in service_targets.values() for p in pods}
