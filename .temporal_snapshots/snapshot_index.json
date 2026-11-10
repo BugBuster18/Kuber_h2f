@@ -1,0 +1,18 @@
+{
+  "updated_at": "2026-10-01T10:17:02.295123+00:00",
+  "count": 2,
+  "snapshots": [
+    {
+      "snapshot_id": "fe4d7b98a7bf7305625e94be",
+      "timestamp": "2026-10-01T10:17:01.298908+00:00",
+      "graph_hash": "92d46f2f6cab2749",
+      "source": "json:presentation-cluster.json"
+    },
+    {
+      "snapshot_id": "373928f4f68484444323f4f2",
+      "timestamp": "2026-10-01T10:17:02.295123+00:00",
+      "graph_hash": "883b3d326e57e6e5",
+      "source": "json:presentation-cluster-drift.json"
+    }
+  ]
+}

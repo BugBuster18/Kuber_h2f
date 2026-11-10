@@ -251,29 +251,114 @@ function explainBlastRadiusNLP(sourceNodeId, graphData) {
     };
 }
 
-// ─── Natural Language Query Parser ──────────────────────────────────────────
+// ─── Semantic Similarity & String Distance Engine ───────────────────────────
+
+function levenshteinDistance(a, b) {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                );
+            }
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
+function stringSimilarity(a, b) {
+    const s1 = (a || '').toLowerCase().trim();
+    const s2 = (b || '').toLowerCase().trim();
+    if (s1 === s2) return 1.0;
+    if (s1.includes(s2) || s2.includes(s1)) return 0.88;
+    const maxLen = Math.max(s1.length, s2.length);
+    if (maxLen === 0) return 1.0;
+    const dist = levenshteinDistance(s1, s2);
+    return Math.max(0, 1 - dist / maxLen);
+}
+
+const SEMANTIC_INTENTS = {
+    CHOKEPOINT: [
+        'chokepoint', 'choke', 'bottleneck', 'keystone', 'linchpin', 'critical',
+        'spof', 'single point of failure', 'central hub', 'hardened', 'most critical'
+    ],
+    BLAST_RADIUS: [
+        'blast', 'radius', 'impact', 'fallout', 'affected', 'damage', 'spread',
+        'contaminate', 'propagation', 'reach from', 'exposure of', 'blastradius'
+    ],
+    CYCLE: [
+        'cycle', 'loop', 'circular', 'infinite', 'ring', 'back and forth',
+        'lateral', 'lateral movement', 'pivot', 'loops'
+    ],
+    CVE: [
+        'cve', 'vuln', 'vulnerability', 'flaw', 'patch', 'exploit', 'cvss',
+        'score', 'rce', 'zero day', 'cves', 'vulnerabilities'
+    ],
+    REACH_TARGET: [
+        'reach', 'compromise', 'hack', 'target', 'path', 'route', 'steal',
+        'pwn', 'infiltrate', 'break into', 'attack', 'access', 'how can',
+        'how does', 'way to', 'kill chain', 'shortest path'
+    ]
+};
+
+function scoreTokensAgainstConcept(tokens, conceptList) {
+    let maxScore = 0;
+    for (const t of tokens) {
+        if (t.length <= 2) continue;
+        for (const c of conceptList) {
+            const sim = stringSimilarity(t, c);
+            if (sim > maxScore) maxScore = sim;
+        }
+    }
+    return maxScore;
+}
+
+// ─── Natural Language Query Parser (Semantic & Local Reasoning) ────────────
 
 /**
- * Parses user input in plain English and matches intent with graph data.
+ * Parses user input in plain English using semantic similarity and graph algorithms.
  */
 function parseNaturalLanguageQuery(query, graphData) {
     if (!query || !query.trim() || !graphData) return null;
 
     const q = query.toLowerCase().trim();
+    const tokens = q.split(/[\s,?;:!➔→\-]+/).filter(Boolean);
     const nodes = graphData.nodes || [];
     const attackPaths = graphData.attack_paths || [];
 
-    // Helper: fuzzy search node name
-    function findNodeMatch(str) {
-        return nodes.find(n => {
-            const name = (n.name || '').toLowerCase();
-            const id = (n.id || '').toLowerCase();
-            return str.includes(name) || str.includes(id) || name.includes(str);
-        });
+    // Helper: fuzzy search node match
+    function findBestNodeMatch(candidateStr) {
+        let best = null;
+        let highestSim = 0.58; // threshold
+        for (const n of nodes) {
+            const nameSim = stringSimilarity(candidateStr, n.name);
+            const idSim = stringSimilarity(candidateStr, n.id);
+            const sim = Math.max(nameSim, idSim);
+            if (sim > highestSim) {
+                highestSim = sim;
+                best = n;
+            }
+        }
+        return best;
     }
 
-    // 1. Critical Chokepoint Intent
-    if (q.includes('chokepoint') || q.includes('bottleneck') || q.includes('critical node') || q.includes('most critical')) {
+    // 1. Semantic Score Evaluation
+    const chokepointScore = scoreTokensAgainstConcept(tokens, SEMANTIC_INTENTS.CHOKEPOINT);
+    const blastScore      = scoreTokensAgainstConcept(tokens, SEMANTIC_INTENTS.BLAST_RADIUS);
+    const cycleScore      = scoreTokensAgainstConcept(tokens, SEMANTIC_INTENTS.CYCLE);
+    const cveScore        = scoreTokensAgainstConcept(tokens, SEMANTIC_INTENTS.CVE);
+
+    // 2. Chokepoint Intent
+    if (chokepointScore >= 0.75 || q.includes('chokepoint') || q.includes('bottleneck')) {
         const explanation = explainCriticalNodeNLP(graphData.critical_node, graphData);
         return {
             type: 'critical_node',
@@ -282,14 +367,14 @@ function parseNaturalLanguageQuery(query, graphData) {
         };
     }
 
-    // 2. Cycles / Lateral Movement Intent
-    if (q.includes('cycle') || q.includes('loop') || q.includes('lateral movement') || q.includes('circular')) {
+    // 3. Cycle / Lateral Movement Intent
+    if (cycleScore >= 0.75 || q.includes('cycle') || q.includes('loop')) {
         const cycles = graphData.cycles || [];
         if (cycles.length === 0) {
             return {
                 type: 'generic_message',
                 title: 'Cycle Analysis',
-                text: 'No circular lateral movement paths were found in this cluster snapshot.'
+                text: 'No circular lateral movement paths were detected in this cluster snapshot.'
             };
         }
         const firstCycle = cycles[0];
@@ -299,21 +384,21 @@ function parseNaturalLanguageQuery(query, graphData) {
             title: `Lateral Movement Loop Detected (${cycles.length} found)`,
             cycleNames,
             cycleNodes: firstCycle.node_ids || [],
-            executiveSummary: `An attacker can move laterally in a loop through: <strong>${cycleNames}</strong>. This allows persistent lateral mobility without triggering typical boundary alarms.`,
+            executiveSummary: `An adversary can traverse laterally in a circular loop across: <strong>${cycleNames}</strong>. This provides persistent lateral dwell without triggering typical linear perimeter alerts.`,
             remediations: [
-                'Break circular trust relationships between ServiceAccounts and workloads.',
-                'Disallow bidirectional network ingress between these tiers using NetworkPolicies.'
+                'Break bidirectional trust links between ServiceAccounts and target workloads.',
+                'Enforce strict Kubernetes NetworkPolicies to disallow circular traffic between tiers.'
             ]
         };
     }
 
-    // 3. Blast Radius Intent
-    if (q.includes('blast') || q.includes('radius') || q.includes('impact of') || q.includes('if compromised')) {
-        // Try to find if a specific node was mentioned
+    // 4. Blast Radius Intent
+    if (blastScore >= 0.75 || q.includes('blast') || q.includes('radius')) {
         let matchedNode = null;
-        for (const n of nodes) {
-            if (q.includes((n.name || '').toLowerCase())) {
-                matchedNode = n;
+        for (const token of tokens) {
+            const match = findBestNodeMatch(token);
+            if (match) {
+                matchedNode = match;
                 break;
             }
         }
@@ -327,8 +412,8 @@ function parseNaturalLanguageQuery(query, graphData) {
         }
     }
 
-    // 4. CVE / Vulnerability Intent
-    if (q.includes('cve') || q.includes('vulnerab') || q.includes('exploit') || q.includes('cvss')) {
+    // 5. CVE / Exploitation Intent
+    if (cveScore >= 0.75 || q.includes('cve') || q.includes('vuln')) {
         const pathWithCve = attackPaths.find(p => (p.cves || []).some(Boolean));
         if (pathWithCve) {
             const explanation = explainAttackPathNLP(pathWithCve, graphData);
@@ -340,27 +425,24 @@ function parseNaturalLanguageQuery(query, graphData) {
         }
     }
 
-    // 5. Source → Target or Reachability Intent
-    // e.g. "path from web-frontend to prod-database" or "how to reach database" or "how can frontend compromise db"
+    // 6. Source ➔ Target or Compromise Reachability Intent
     let targetCandidate = null;
     let sourceCandidate = null;
 
-    // Look for target indicator keywords
-    if (q.includes('to ') || q.includes('reach ') || q.includes('compromise ') || q.includes('target ')) {
-        // Search nodes
-        for (const n of nodes) {
-            const name = (n.name || '').toLowerCase();
-            if (name && q.includes(name)) {
-                if (!targetCandidate && (n.is_sink || n.type === 'database' || n.type === 'secret')) {
-                    targetCandidate = n;
-                } else if (!sourceCandidate) {
-                    sourceCandidate = n;
-                }
+    for (const t of tokens) {
+        if (t.length <= 2) continue;
+        const matched = findBestNodeMatch(t);
+        if (matched) {
+            if (!targetCandidate && (matched.is_sink || matched.type === 'database' || matched.type === 'secret')) {
+                targetCandidate = matched;
+            } else if (!sourceCandidate && (matched.is_source || matched.type === 'pod' || matched.type === 'ingress')) {
+                sourceCandidate = matched;
+            } else if (!targetCandidate) {
+                targetCandidate = matched;
             }
         }
     }
 
-    // Search attack paths matching candidates
     let bestPath = null;
     if (targetCandidate && sourceCandidate) {
         bestPath = attackPaths.find(p => {
@@ -383,18 +465,23 @@ function parseNaturalLanguageQuery(query, graphData) {
         });
     }
 
-    // Fallback: check if any path contains any mentioned keyword
+    // Fallback: search attack path names with fuzzy similarity
     if (!bestPath) {
+        let highestSim = 0.5;
         for (const p of attackPaths) {
-            const joinedNames = (p.path_names || []).join(' ').toLowerCase();
-            if (joinedNames.split(' ').some(part => part.length > 3 && q.includes(part))) {
-                bestPath = p;
-                break;
+            for (const name of (p.path_names || [])) {
+                for (const t of tokens) {
+                    const sim = stringSimilarity(t, name);
+                    if (sim > highestSim) {
+                        highestSim = sim;
+                        bestPath = p;
+                    }
+                }
             }
         }
     }
 
-    // If still no path, pick the highest risk or first path
+    // Ultimate fallback: highest risk path
     if (!bestPath && attackPaths.length > 0) {
         bestPath = attackPaths[0];
     }
@@ -411,7 +498,7 @@ function parseNaturalLanguageQuery(query, graphData) {
     return {
         type: 'generic_message',
         title: 'Query Assistance',
-        text: `We analyzed your query "${query}", but could not correlate it with an active path. Try searching for specific workloads like <strong>"web-frontend"</strong>, <strong>"prod-database"</strong>, or ask <strong>"What are the critical chokepoints?"</strong>`
+        text: `We analyzed your query "${query}", but could not correlate it with an active path. Try searching for specific workloads like <strong>"web-frontend"</strong>, <strong>"prod-payment-db"</strong>, or ask <strong>"What are the critical chokepoints?"</strong>`
     };
 }
 

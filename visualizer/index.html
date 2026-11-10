@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=2.1">
+    <link rel="stylesheet" href="styles.css?v=2.3">
 </head>
 <body>
     <!-- ── Top Bar ─────────────────────────────────────────────────────── -->
@@ -38,6 +38,25 @@
                 Timeline
             </button>
         </div>
+
+        <!-- Dynamic Cluster Graph Selector -->
+        <div class="topbar-cluster-select" id="topbar-cluster-select">
+            <span class="cluster-select-icon" title="Graph Source">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            </span>
+            <select id="cluster-selector" class="cluster-select" title="Switch cluster graph or load new export">
+                <option value="graph-data.json">⚡ Active Export (graph-data.json)</option>
+                <option value="samples/presentation-cluster.json">🎯 Presentation Cluster (Baseline)</option>
+                <option value="samples/presentation-cluster-drift.json">⚠️ Presentation Cluster (Drift)</option>
+                <option value="samples/mock-cluster-graph.json">🏢 Mock Cluster (Full E-Commerce)</option>
+            </select>
+            <button id="btn-topbar-load" class="btn-topbar-load" title="Choose any cluster JSON file from your machine">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Upload JSON</span>
+            </button>
+            <input type="file" id="topbar-file-input" accept=".json" style="display:none">
+        </div>
+
         <div class="topbar-metrics" id="topbar-metrics">
             <div class="metric" id="metric-nodes"><span class="metric-val" id="node-count">—</span><span class="metric-lbl">Nodes</span></div>
             <div class="metric" id="metric-edges"><span class="metric-val" id="edge-count">—</span><span class="metric-lbl">Edges</span></div>
@@ -258,8 +277,8 @@
     </main>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="script.js?v=2.1"></script>
-    <script src="dashboard.js?v=2.1"></script>
-    <script src="nlp-engine.js?v=2.1"></script>
+    <script src="script.js?v=2.3"></script>
+    <script src="dashboard.js?v=2.3"></script>
+    <script src="nlp-engine.js?v=2.3"></script>
 </body>
 </html>

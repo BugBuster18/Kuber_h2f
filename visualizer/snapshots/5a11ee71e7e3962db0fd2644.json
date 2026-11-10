@@ -1,0 +1,285 @@
+{
+  "snapshot_id": "5a11ee71e7e3962db0fd2644",
+  "timestamp": "2026-10-01T10:05:54.064465+00:00",
+  "cluster_data": {
+    "nodes": [
+      {
+        "id": "external-internet",
+        "type": "Externalactor",
+        "name": "internet",
+        "namespace": "external",
+        "risk_score": 10.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "public-ingress",
+        "type": "Ingress",
+        "name": "public-ingress",
+        "namespace": "ingress-nginx",
+        "risk_score": 7.0,
+        "is_source": true,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "pod-frontend",
+        "type": "Pod",
+        "name": "web-frontend",
+        "namespace": "storefront",
+        "risk_score": 7.5,
+        "is_source": false,
+        "is_sink": false,
+        "cves": [
+          "CVE-2023-44487"
+        ]
+      },
+      {
+        "id": "pod-auth",
+        "type": "Pod",
+        "name": "auth-service",
+        "namespace": "identity",
+        "risk_score": 8.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": [
+          "CVE-2024-21626"
+        ]
+      },
+      {
+        "id": "pod-telemetry",
+        "type": "Pod",
+        "name": "telemetry-agent",
+        "namespace": "monitoring",
+        "risk_score": 4.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "sa-frontend",
+        "type": "Serviceaccount",
+        "name": "storefront-sa",
+        "namespace": "storefront",
+        "risk_score": 5.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "sa-auth-operator",
+        "type": "Serviceaccount",
+        "name": "auth-operator-sa",
+        "namespace": "identity",
+        "risk_score": 9.5,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "sa-telemetry",
+        "type": "Serviceaccount",
+        "name": "telemetry-sync-sa",
+        "namespace": "monitoring",
+        "risk_score": 4.5,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "rolebinding-vault",
+        "type": "Rolebinding",
+        "name": "vault-access-binding",
+        "namespace": "identity",
+        "risk_score": 8.5,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "role-vault-reader",
+        "type": "Role",
+        "name": "vault-secrets-reader",
+        "namespace": "identity",
+        "risk_score": 8.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "secret-payment-keys",
+        "type": "Secret",
+        "name": "payment-api-keys",
+        "namespace": "payments",
+        "risk_score": 9.5,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "secret-vault-token",
+        "type": "Secret",
+        "name": "vault-master-token",
+        "namespace": "identity",
+        "risk_score": 10.0,
+        "is_source": false,
+        "is_sink": false,
+        "cves": []
+      },
+      {
+        "id": "db-payment-core",
+        "type": "Database",
+        "name": "prod-payment-db",
+        "namespace": "payments",
+        "risk_score": 10.0,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      },
+      {
+        "id": "db-customer-vault",
+        "type": "Database",
+        "name": "customer-vault-db",
+        "namespace": "identity",
+        "risk_score": 10.0,
+        "is_source": false,
+        "is_sink": true,
+        "cves": []
+      }
+    ],
+    "edges": [
+      {
+        "source": "external-internet",
+        "target": "public-ingress",
+        "relationship": "exposes",
+        "weight": 1.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "public-ingress",
+        "target": "pod-frontend",
+        "relationship": "routes_to",
+        "weight": 1.5,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod-frontend",
+        "target": "sa-frontend",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": "CVE-2023-44487",
+        "cvss": 8.5
+      },
+      {
+        "source": "sa-frontend",
+        "target": "pod-auth",
+        "relationship": "connects_to",
+        "weight": 2.5,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod-auth",
+        "target": "sa-auth-operator",
+        "relationship": "authenticates_as",
+        "weight": 2.0,
+        "cve": "CVE-2024-21626",
+        "cvss": 9.8
+      },
+      {
+        "source": "sa-auth-operator",
+        "target": "rolebinding-vault",
+        "relationship": "binds_to",
+        "weight": 1.5,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "rolebinding-vault",
+        "target": "role-vault-reader",
+        "relationship": "grants",
+        "weight": 1.5,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "role-vault-reader",
+        "target": "secret-payment-keys",
+        "relationship": "reads",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "secret-payment-keys",
+        "target": "db-payment-core",
+        "relationship": "grants_access",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "role-vault-reader",
+        "target": "secret-vault-token",
+        "relationship": "reads",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "secret-vault-token",
+        "target": "db-customer-vault",
+        "relationship": "grants_access",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod-auth",
+        "target": "pod-telemetry",
+        "relationship": "monitors",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "pod-telemetry",
+        "target": "sa-telemetry",
+        "relationship": "runs_as",
+        "weight": 2.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "sa-telemetry",
+        "target": "pod-auth",
+        "relationship": "token_sync",
+        "weight": 3.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "sa-frontend",
+        "target": "pod-telemetry",
+        "relationship": "logs_to",
+        "weight": 4.0,
+        "cve": null,
+        "cvss": null
+      },
+      {
+        "source": "public-ingress",
+        "target": "pod-auth",
+        "relationship": "direct_api",
+        "weight": 5.0,
+        "cve": null,
+        "cvss": null
+      }
+    ]
+  },
+  "graph_hash": "92d46f2f6cab2749",
+  "source": "json:presentation-cluster.json",
+  "metadata": {}
+}

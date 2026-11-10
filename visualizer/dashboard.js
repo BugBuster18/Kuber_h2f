@@ -33,28 +33,44 @@ document.addEventListener('DOMContentLoaded', () => {
         tlInput.addEventListener('change', e => handleTimelineFiles(e.target.files));
     }
 
-    // Load timeline button (try to load from default path)
+    // Load timeline button (try to load from snapshots/ or .temporal_snapshots/)
     document.getElementById('btn-load-timeline')?.addEventListener('click', async () => {
         try {
-            const resp = await fetch('../.temporal_snapshots/snapshot_index.json');
-            if (!resp.ok) throw new Error('No snapshot index found');
-            const index = await resp.json();
-            if (index.snapshots && index.snapshots.length > 0) {
-                const snapshots = [];
-                for (const entry of index.snapshots) {
-                    try {
-                        const r = await fetch(`../.temporal_snapshots/${entry.snapshot_id}.json`);
-                        if (r.ok) snapshots.push(await r.json());
-                    } catch (_) {}
-                }
-                if (snapshots.length > 0) {
-                    renderTimeline(snapshots);
-                    return;
-                }
+            const possibleBasePaths = ['snapshots', '../.temporal_snapshots', '.temporal_snapshots'];
+            let index = null;
+            let chosenBase = '';
+
+            for (const base of possibleBasePaths) {
+                try {
+                    const resp = await fetch(`${base}/snapshot_index.json`);
+                    if (resp.ok) {
+                        index = await resp.json();
+                        chosenBase = base;
+                        break;
+                    }
+                } catch (_) {}
             }
-            alert('No snapshots found in .temporal_snapshots/.\nRun: python main.py temporal-snapshot -i cluster-graph.json');
+
+            if (!index || !index.snapshots || index.snapshots.length === 0) {
+                throw new Error('No snapshot index found. Capture snapshots with: python main.py temporal-snapshot -i presentation-cluster.json');
+            }
+
+            const snapshots = [];
+            for (const entry of index.snapshots) {
+                try {
+                    const r = await fetch(`${chosenBase}/${entry.snapshot_id}.json`);
+                    if (r.ok) snapshots.push(await r.json());
+                } catch (_) {}
+            }
+
+            if (snapshots.length > 0) {
+                renderTimeline(snapshots);
+                return;
+            }
+
+            alert('No snapshot files could be loaded.');
         } catch (err) {
-            alert('Could not load timeline data.\nDrag snapshot JSON files directly, or run:\n  python main.py temporal-snapshot -i cluster-graph.json\n\nError: ' + err.message);
+            alert('Could not load timeline data.\nDrag snapshot JSON files directly, or run:\n  python main.py temporal-snapshot -i presentation-cluster.json\n\nError: ' + err.message);
         }
     });
 
@@ -376,6 +392,66 @@ function showSnapshotDiff(index) {
     showClientDiff(oldSnap, newSnap);
 }
 
+// ── Helper: Compute attack paths for a snapshot client-side ───
+function computeSnapshotPaths(clusterData) {
+    if (!clusterData || !Array.isArray(clusterData.nodes) || !Array.isArray(clusterData.edges)) return [];
+    
+    const nodes = clusterData.nodes;
+    const edges = clusterData.edges;
+    const nodeMap = new Map();
+    nodes.forEach(n => nodeMap.set(n.id, n));
+
+    const isSourceNode = n => n.is_source === true || ['externalactor', 'ingress', 'external-internet'].includes((n.type || '').toLowerCase());
+    const isSinkNode = n => n.is_sink === true || ['secret', 'database'].includes((n.type || '').toLowerCase());
+
+    const sources = nodes.filter(isSourceNode);
+    const sinks = new Set(nodes.filter(isSinkNode).map(n => n.id));
+
+    const adj = new Map();
+    edges.forEach(e => {
+        if (!adj.has(e.source)) adj.set(e.source, []);
+        adj.get(e.source).push({ target: e.target, rel: e.relationship, weight: Number(e.weight) || 1.0 });
+    });
+
+    const paths = [];
+    const maxDepth = 8;
+
+    function dfs(currentId, targetId, visited, currentPath, totalWeight) {
+        if (currentPath.length > maxDepth) return;
+        if (currentId === targetId) {
+            paths.push({
+                key: currentPath.join('->'),
+                nodeIds: [...currentPath],
+                nodeNames: currentPath.map(id => nodeMap.get(id)?.name || id),
+                totalRisk: totalWeight,
+                hops: currentPath.length - 1
+            });
+            return;
+        }
+
+        const neighbors = adj.get(currentId) || [];
+        for (const edge of neighbors) {
+            if (!visited.has(edge.target)) {
+                visited.add(edge.target);
+                currentPath.push(edge.target);
+                dfs(edge.target, targetId, visited, currentPath, totalWeight + edge.weight);
+                currentPath.pop();
+                visited.delete(edge.target);
+            }
+        }
+    }
+
+    for (const src of sources) {
+        for (const sinkId of sinks) {
+            if (src.id === sinkId) continue;
+            const visited = new Set([src.id]);
+            dfs(src.id, sinkId, visited, [src.id], 0);
+        }
+    }
+
+    return paths;
+}
+
 function showClientDiff(oldSnap, newSnap) {
     const panel = document.getElementById('diff-panel');
     const body = document.getElementById('diff-panel-body');
@@ -396,7 +472,104 @@ function showClientDiff(oldSnap, newSnap) {
     (newSnap.cluster_data?.nodes || []).forEach(n => nodeNameMap[n.id] = n.name);
     (oldSnap.cluster_data?.nodes || []).forEach(n => { if (!nodeNameMap[n.id]) nodeNameMap[n.id] = n.name; });
 
+    // Compute attack paths & causal impact
+    const oldPaths = computeSnapshotPaths(oldSnap.cluster_data);
+    const newPaths = computeSnapshotPaths(newSnap.cluster_data);
+
+    const oldPathKeySet = new Set(oldPaths.map(p => p.key));
+    const newPathKeySet = new Set(newPaths.map(p => p.key));
+
+    const introducedPaths = newPaths.filter(p => !oldPathKeySet.has(p.key));
+    const eliminatedPaths = oldPaths.filter(p => !newPathKeySet.has(p.key));
+
+    // Causal Attribution: What changed because of what?
+    const addedNodeIdSet = new Set(addedNodes);
+    const causalAttributions = introducedPaths.map(p => {
+        const enablingNodes = p.nodeIds.filter(id => addedNodeIdSet.has(id));
+        const enablingEdges = [];
+        for (let i = 0; i < p.nodeIds.length - 1; i++) {
+            const hopKey = `${p.nodeIds[i]}|${p.nodeIds[i+1]}`;
+            const matchedEdge = addedEdges.find(e => e.startsWith(hopKey));
+            if (matchedEdge) {
+                enablingEdges.push(`${nodeNameMap[p.nodeIds[i]] || p.nodeIds[i]} ──▸ ${nodeNameMap[p.nodeIds[i+1]] || p.nodeIds[i+1]}`);
+            }
+        }
+
+        const nodeNames = enablingNodes.map(id => nodeNameMap[id] || id);
+        const reasons = [];
+        if (nodeNames.length > 0) reasons.push(`deploying resource(s): <strong>${nodeNames.join(', ')}</strong>`);
+        if (enablingEdges.length > 0) reasons.push(`establishing privilege link(s): <strong>${enablingEdges.join(', ')}</strong>`);
+
+        const narrative = reasons.length > 0
+            ? `New breach route established directly because of ${reasons.join(' and ')}. This exposes sink <strong>${p.nodeNames[p.nodeNames.length - 1]}</strong> from external ingress.`
+            : `Reachability shifted due to topology modifications, opening a ${p.hops}-hop attack route.`;
+
+        const badNode = enablingNodes[0];
+        const remediation = badNode
+            ? `kubectl delete $(kubectl get all -A -o name | grep ${nodeNameMap[badNode] || badNode})`
+            : `Review network policies separating ${p.nodeNames[0]} and ${p.nodeNames[p.nodeNames.length - 1]}`;
+
+        return {
+            pathStr: p.nodeNames.join(' → '),
+            hops: p.hops,
+            risk: p.totalRisk.toFixed(2),
+            narrative,
+            enablingNodes: nodeNames,
+            enablingEdges,
+            remediation
+        };
+    });
+
+    // Render Causal Section
+    let causalHtml = '';
+    if (causalAttributions.length > 0) {
+        causalHtml = `
+            <div class="diff-section">
+                <div class="diff-section-title">🧠 Causal Analysis (What Changed Because of What)</div>
+                <div class="diff-causal-container">
+                    ${causalAttributions.map(c => `
+                        <div class="diff-causal-card">
+                            <div class="diff-causal-header">
+                                <span class="diff-causal-badge">⚡ Introduced Attack Path</span>
+                                <span style="font-size:.74rem;color:var(--text-3);font-family:'JetBrains Mono'">${c.hops} hops • Risk: ${c.risk}</span>
+                            </div>
+                            <div class="diff-causal-route">${c.pathStr}</div>
+                            <div class="diff-causal-narrative">${c.narrative}</div>
+                            ${c.enablingNodes.length > 0 ? `
+                                <div class="diff-causal-meta">
+                                    <span class="diff-causal-pill trigger">Enabling Change:</span>
+                                    ${c.enablingNodes.map(n => `<span class="diff-causal-pill">${n}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                            <div class="diff-causal-action">
+                                <span>🛠️ SRE Action:</span>
+                                <code>${c.remediation}</code>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+    } else {
+        causalHtml = `
+            <div class="diff-section">
+                <div class="diff-section-title">🧠 Causal Analysis (What Changed Because of What)</div>
+                <div class="diff-causal-card clean">
+                    <div class="diff-causal-header">
+                        <span class="diff-causal-badge safe">✓ No Security Regression</span>
+                    </div>
+                    <div class="diff-causal-narrative">No new source-to-sink attack paths were introduced by these topology changes. Cluster privilege boundaries remain intact.</div>
+                </div>
+            </div>`;
+    }
+
     body.innerHTML = `
+        ${causalHtml}
+        <div class="diff-section">
+            <div class="diff-section-title">Attack Path Traversal Delta (+${introducedPaths.length} / -${eliminatedPaths.length})</div>
+            ${introducedPaths.map(p => `<div class="diff-item added">⚡ ${p.nodeNames.join(' → ')} (${p.hops} hops)</div>`).join('')}
+            ${eliminatedPaths.map(p => `<div class="diff-item removed">✓ ${p.nodeNames.join(' → ')} (eliminated)</div>`).join('')}
+            ${introducedPaths.length === 0 && eliminatedPaths.length === 0 ? '<div class="diff-item">No attack path changes.</div>' : ''}
+        </div>
         <div class="diff-section">
             <div class="diff-section-title">Nodes (+${addedNodes.length} / -${removedNodes.length})</div>
             ${addedNodes.map(id => `<div class="diff-item added">+ ${nodeNameMap[id] || id}</div>`).join('')}
@@ -411,10 +584,10 @@ function showClientDiff(oldSnap, newSnap) {
             ${addedEdges.length > 10 ? `<div class="diff-item" style="color:var(--text-3)">...and ${addedEdges.length - 10} more</div>` : ''}
         </div>
         <div class="diff-section">
-            <div class="diff-section-title">Summary</div>
-            <div class="detail-row"><span class="detail-row-key">Hash (old)</span><span class="detail-row-value td-mono">${oldSnap.graph_hash}</span></div>
-            <div class="detail-row"><span class="detail-row-key">Hash (new)</span><span class="detail-row-value td-mono">${newSnap.graph_hash}</span></div>
-            <div class="detail-row"><span class="detail-row-key">Same?</span><span class="detail-row-value">${oldSnap.graph_hash === newSnap.graph_hash ? '✓ Yes' : '✗ Changed'}</span></div>
+            <div class="diff-section-title">Snapshot State Hashes</div>
+            <div class="detail-row"><span class="detail-row-key">Baseline</span><span class="detail-row-value td-mono">${oldSnap.graph_hash || '—'}</span></div>
+            <div class="detail-row"><span class="detail-row-key">Current</span><span class="detail-row-value td-mono">${newSnap.graph_hash || '—'}</span></div>
+            <div class="detail-row"><span class="detail-row-key">Drift Status</span><span class="detail-row-value">${oldSnap.graph_hash === newSnap.graph_hash ? '✓ Identical' : '⚡ State Drift Detected'}</span></div>
         </div>`;
 }
 
@@ -449,9 +622,37 @@ function showDiffDetail(index) {
     const re = diff.removed_edges || [];
     const np = diff.new_attack_paths || [];
     const rp = diff.removed_attack_paths || [];
+    const attributions = diff.attributions || [];
+
+    let causalHtml = '';
+    if (attributions.length > 0) {
+        causalHtml = `
+            <div class="diff-section">
+                <div class="diff-section-title">🧠 Causal Analysis (What Changed Because of What)</div>
+                <div class="diff-causal-container">
+                    ${attributions.map(att => `
+                        <div class="diff-causal-card">
+                            <div class="diff-causal-header">
+                                <span class="diff-causal-badge">⚡ Root-Cause Attribution</span>
+                                <span class="sev sev-${att.severity || 'HIGH'}">${att.severity || 'HIGH'}</span>
+                            </div>
+                            <div class="diff-causal-route">${att.path}</div>
+                            <div class="diff-causal-narrative">${att.narrative}</div>
+                            ${(att.enabling_nodes || []).length > 0 ? `
+                                <div class="diff-causal-meta">
+                                    <span class="diff-causal-pill trigger">Enabling Nodes:</span>
+                                    ${att.enabling_nodes.map(n => `<span class="diff-causal-pill">${n}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+    }
 
     body.innerHTML = `
         ${alertsHtml ? `<div class="diff-section"><div class="diff-section-title">Alerts (${diff.alerts.length})</div>${alertsHtml}</div>` : ''}
+        ${causalHtml}
         <div class="diff-section">
             <div class="diff-section-title">New Attack Paths (${np.length})</div>
             ${np.map(p => `<div class="diff-item added">⚡ ${(p.path_names || []).join(' → ')} — <span class="sev sev-${p.severity}">${p.severity}</span> risk: ${(p.total_risk || 0).toFixed(2)}</div>`).join('')}

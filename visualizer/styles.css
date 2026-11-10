@@ -200,6 +200,63 @@ code {
     stroke: currentColor;
 }
 
+/* ── Topbar Cluster Selector ────────────────────────────────────────── */
+.topbar-cluster-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 3px 8px;
+    box-shadow: var(--shadow-sm);
+}
+
+.cluster-select-icon {
+    color: var(--orange);
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.cluster-select {
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-1);
+    outline: none;
+    cursor: pointer;
+    padding-right: 4px;
+}
+
+.cluster-select:focus {
+    color: var(--orange);
+}
+
+.btn-topbar-load {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--orange-light);
+    color: var(--orange);
+    border: 1px solid var(--orange-border);
+    padding: 4px 9px;
+    border-radius: var(--r-xs);
+    font-family: inherit;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-topbar-load:hover {
+    background: var(--orange);
+    color: #FFFFFF;
+}
+
 .topbar-metrics {
     display: flex;
     gap: 8px;
@@ -439,6 +496,62 @@ code {
     gap: 6px;
     flex-wrap: wrap;
     pointer-events: auto;
+}
+
+/* NLP Autocomplete Dropdown */
+.nlp-search-box {
+    position: relative;
+}
+
+.nlp-autocomplete-box {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-lg);
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 150;
+    display: none;
+}
+
+.nlp-autocomplete-box.active {
+    display: block;
+}
+
+.nlp-auto-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 14px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--text-1);
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background 0.12s ease;
+}
+
+.nlp-auto-item:last-child {
+    border-bottom: none;
+}
+
+.nlp-auto-item:hover, .nlp-auto-item.selected {
+    background: var(--orange-light);
+    color: var(--orange);
+}
+
+.nlp-auto-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 6px;
+    background: var(--bg-2);
+    border-radius: 4px;
 }
 
 .nlp-chip {
@@ -904,7 +1017,7 @@ code {
 .zoom-controls {
     position: absolute;
     bottom: 24px;
-    right: calc(var(--drawer-w) + 24px);
+    right: 24px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -1590,6 +1703,121 @@ code {
 .diff-alert-desc {
     color: var(--text-2);
     font-size: 0.74rem;
+}
+
+/* ── Causal Analysis Card ────────────────────────────────────────────── */
+.diff-causal-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.diff-causal-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--orange);
+    border-radius: var(--r-md);
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.diff-causal-card.clean {
+    border-left-color: var(--green);
+}
+
+.diff-causal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.diff-causal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    background: var(--orange-light);
+    color: var(--orange-dark);
+    border: 1px solid var(--orange-border);
+}
+
+.diff-causal-badge.safe {
+    background: var(--green-light);
+    color: var(--green);
+    border-color: var(--green-border);
+}
+
+.diff-causal-narrative {
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--text-1);
+}
+
+.diff-causal-narrative strong {
+    color: var(--orange-dark);
+}
+
+.diff-causal-route {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    background: var(--bg-1);
+    padding: 8px 12px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border);
+    color: var(--text-1);
+    word-break: break-all;
+}
+
+.diff-causal-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.74rem;
+}
+
+.diff-causal-pill {
+    padding: 2px 8px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-2);
+}
+
+.diff-causal-pill.trigger {
+    background: #FFF1F2;
+    border-color: #FECDD3;
+    color: #BE123C;
+    font-weight: 600;
+}
+
+.diff-causal-action {
+    background: #F8FAFC;
+    border: 1px dashed var(--border);
+    border-radius: var(--r-sm);
+    padding: 8px 12px;
+    font-size: 0.76rem;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.diff-causal-action code {
+    font-family: 'JetBrains Mono', monospace;
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--orange-dark);
+    font-weight: 600;
 }
 
 /* ══════════════════════════════════════════════════════════════════════

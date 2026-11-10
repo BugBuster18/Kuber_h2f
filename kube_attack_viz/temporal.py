@@ -38,7 +38,7 @@ import networkx as nx
 
 from .ingestion import ingest_from_json, ingest_from_kubectl, export_graph_to_json
 from .graph_builder import build_attack_graph, get_node_name, get_source_nodes, get_sink_nodes
-from .algorithms.dijkstra import shortest_attack_path, _severity_label
+from .algorithms.dijkstra import shortest_attack_path, all_shortest_paths, _severity_label
 from .models import AttackPath, ClusterGraph
 
 logger = logging.getLogger("kubeattackviz.temporal")
@@ -156,6 +156,7 @@ class TemporalDiff:
     removed_edges: list[tuple[str, str, str]] = field(default_factory=list)
     new_attack_paths: list[AttackPath] = field(default_factory=list)
     removed_attack_paths: list[AttackPath] = field(default_factory=list)
+    attributions: list[dict] = field(default_factory=list)
     alerts: list[TemporalAlert] = field(default_factory=list)
 
     @property
@@ -192,6 +193,7 @@ class TemporalDiff:
             ],
             "new_attack_paths": [p.to_dict() for p in self.new_attack_paths],
             "removed_attack_paths": [p.to_dict() for p in self.removed_attack_paths],
+            "attributions": self.attributions,
             "alerts": [a.to_dict() for a in self.alerts],
             "summary": {
                 "new_nodes_count": len(self.new_nodes),
@@ -342,17 +344,10 @@ class SnapshotStore:
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 
-def _compute_path_keys(G: nx.DiGraph) -> dict[tuple[str, str], AttackPath]:
-    """Compute all source→sink shortest paths and return keyed by (src, sink)."""
-    sources = get_source_nodes(G)
-    sinks = get_sink_nodes(G)
-    path_map = {}
-    for src in sources:
-        for sink in sinks:
-            path = shortest_attack_path(G, src, sink)
-            if path is not None:
-                path_map[(src, sink)] = path
-    return path_map
+def _compute_path_keys(G: nx.DiGraph) -> dict[str, AttackPath]:
+    """Compute all source→sink attack paths keyed by exact node route."""
+    paths = all_shortest_paths(G)
+    return {"->".join(p.path_nodes): p for p in paths}
 
 
 def temporal_diff(
@@ -446,6 +441,38 @@ def diff_clusters(
     for key, path in old_path_keys.items():
         if key not in new_path_keys:
             result.removed_attack_paths.append(path)
+
+    # ── Causal Attribution: What changed because of what? ─────────────
+    new_node_id_set = {n[0] for n in result.new_nodes}
+    new_edge_set = {(e[0], e[1]) for e in result.new_edges}
+
+    for path in result.new_attack_paths:
+        enabling_nodes = [nid for nid in path.path_nodes if nid in new_node_id_set]
+        enabling_edges = []
+        for i in range(len(path.path_nodes) - 1):
+            hop = (path.path_nodes[i], path.path_nodes[i + 1])
+            if hop in new_edge_set:
+                enabling_edges.append(f"{path.path_names[i]} ──▸ {path.path_names[i+1]}")
+
+        node_names = [new_G.nodes[nid].get("name", nid) for nid in enabling_nodes]
+        reasons = []
+        if node_names:
+            reasons.append(f"Adding resource(s): {', '.join(node_names)}")
+        if enabling_edges:
+            reasons.append(f"Establishing link(s): {', '.join(enabling_edges)}")
+
+        narrative = (
+            f"Attack path '{' → '.join(path.path_names)}' ({path.severity}, risk {path.total_risk:.2f}) "
+            f"was introduced by: {'; '.join(reasons) if reasons else 'topological reachability shift'}."
+        )
+        result.attributions.append({
+            "path": " → ".join(path.path_names),
+            "severity": path.severity,
+            "risk": path.total_risk,
+            "enabling_nodes": node_names,
+            "enabling_edges": enabling_edges,
+            "narrative": narrative,
+        })
 
     # ── Generate alerts ────────────────────────────────────────────────
     result.alerts = AlertEngine.evaluate(result)
@@ -1152,6 +1179,12 @@ def format_temporal_diff(diff: TemporalDiff) -> str:
             f"    ✓ {' → '.join(path.path_names)} "
             f"(was risk: {path.total_risk:.2f})"
         )
+
+    # Causal Impact Attribution
+    if hasattr(diff, "attributions") and diff.attributions:
+        lines.append(f"\n  🧠 Causal Analysis (What Changed Because of What):")
+        for attr in diff.attributions:
+            lines.append(f"    • {attr['narrative']}")
 
     # Alerts
     if diff.alerts:

@@ -175,11 +175,44 @@ function initControls() {
         });
     }
 
+    // Topbar Cluster Selector & Upload
+    const clusterSelector = document.getElementById('cluster-selector');
+    if (clusterSelector) {
+        clusterSelector.addEventListener('change', (e) => {
+            const url = e.target.value;
+            if (url) loadGraphByUrl(url);
+        });
+    }
+
+    const btnTopbarLoad = document.getElementById('btn-topbar-load');
+    const topbarFileInput = document.getElementById('topbar-file-input');
+    if (btnTopbarLoad && topbarFileInput) {
+        btnTopbarLoad.addEventListener('click', () => topbarFileInput.click());
+        topbarFileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                loadFile(file);
+                // Update dropdown label to reflect custom file
+                let customOpt = clusterSelector?.querySelector('option[data-custom="true"]');
+                if (!customOpt && clusterSelector) {
+                    customOpt = document.createElement('option');
+                    customOpt.dataset.custom = 'true';
+                    clusterSelector.prepend(customOpt);
+                }
+                if (customOpt) {
+                    customOpt.value = '__custom__';
+                    customOpt.textContent = `📁 ${file.name}`;
+                    clusterSelector.value = '__custom__';
+                }
+            }
+        });
+    }
+
     // Auto-load graph data
     loadDemoData();
 }
 
-// ─── Data Loading ───────────────────────────────────────────────────────────
+// ─── Data Loading & Dynamic Enrichment ──────────────────────────────────────
 
 function loadFile(file) {
     const reader = new FileReader();
@@ -194,6 +227,29 @@ function loadFile(file) {
     reader.readAsText(file);
 }
 
+async function loadGraphByUrl(url) {
+    try {
+        let resp = await fetch(url);
+        if (!resp.ok) {
+            // Smart fallback paths if server root is different
+            const baseName = url.split('/').pop();
+            const fallbacks = [`samples/${baseName}`, `../${baseName}`, baseName];
+            for (const fb of fallbacks) {
+                try {
+                    const r = await fetch(fb);
+                    if (r.ok) { resp = r; break; }
+                } catch (_) {}
+            }
+        }
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        loadGraphData(data);
+    } catch (err) {
+        console.error('Failed to load graph URL:', err);
+        alert(`Could not load graph from ${url}.\nYou can click "Upload JSON" to choose any cluster file from your machine.`);
+    }
+}
+
 async function loadDemoData() {
     try {
         const resp = await fetch('graph-data.json');
@@ -201,11 +257,184 @@ async function loadDemoData() {
         const data = await resp.json();
         loadGraphData(data);
     } catch (err) {
-        console.warn('Auto-load: graph-data.json not found. Run: python main.py export-frontend --input cluster-graph.json');
+        // Fallback: try loading sample presentation cluster
+        console.warn('graph-data.json not found, falling back to samples/presentation-cluster.json');
+        loadGraphByUrl('samples/presentation-cluster.json');
     }
 }
 
+// Client-side synthesizer: Computes attack paths, cycles, and blast radius
+// for raw cluster graphs (e.g. directly uploaded or selected JSONs)
+function enrichRawClusterData(data) {
+    if (!data.nodes || !data.edges) return;
+    if (data.attack_paths && data.attack_paths.length > 0) return; // Already precomputed
+
+    const nodes = data.nodes;
+    const edges = data.edges;
+    const nodeMap = new Map();
+    nodes.forEach(n => nodeMap.set(n.id, n));
+
+    const isSource = n => n.is_source === true || ['externalactor', 'ingress'].includes((n.type || '').toLowerCase());
+    const isSink = n => n.is_sink === true || ['secret', 'database'].includes((n.type || '').toLowerCase());
+
+    const sources = nodes.filter(isSource);
+    const sinks = nodes.filter(isSink);
+
+    const adj = new Map();
+    edges.forEach(e => {
+        if (!adj.has(e.source)) adj.set(e.source, []);
+        adj.get(e.source).push({ target: e.target, rel: e.relationship, weight: Number(e.weight) || 1.0, cve: e.cve, cvss: e.cvss });
+    });
+
+    // 1. Attack Paths (Shortest paths source to sink)
+    const attackPaths = [];
+    sources.forEach(src => {
+        sinks.forEach(snk => {
+            if (src.id === snk.id) return;
+            const dist = new Map();
+            const prev = new Map();
+            const prevEdge = new Map();
+            const queue = [src.id];
+            dist.set(src.id, 0);
+
+            while (queue.length > 0) {
+                queue.sort((a, b) => (dist.get(a) || Infinity) - (dist.get(b) || Infinity));
+                const curr = queue.shift();
+                if (curr === snk.id) break;
+
+                const currDist = dist.get(curr);
+                const neighbors = adj.get(curr) || [];
+                for (const ed of neighbors) {
+                    const alt = currDist + ed.weight;
+                    if (alt < (dist.get(ed.target) ?? Infinity)) {
+                        dist.set(ed.target, alt);
+                        prev.set(ed.target, curr);
+                        prevEdge.set(ed.target, ed);
+                        if (!queue.includes(ed.target)) queue.push(ed.target);
+                    }
+                }
+            }
+
+            if (dist.has(snk.id)) {
+                const pathNodes = [];
+                const relationships = [];
+                const cves = [];
+                const cvssScores = [];
+                let curr = snk.id;
+                while (curr) {
+                    pathNodes.unshift(curr);
+                    const pe = prevEdge.get(curr);
+                    if (pe) {
+                        relationships.unshift(pe.rel || '');
+                        cves.unshift(pe.cve || null);
+                        cvssScores.unshift(pe.cvss || null);
+                    }
+                    curr = prev.get(curr);
+                }
+
+                const totalRisk = dist.get(snk.id);
+                const sev = totalRisk > 15 ? 'CRITICAL' : totalRisk > 8 ? 'HIGH' : totalRisk > 4 ? 'MEDIUM' : 'LOW';
+                attackPaths.push({
+                    path_nodes: pathNodes,
+                    path_names: pathNodes.map(id => nodeMap.get(id)?.name || id),
+                    relationships,
+                    cves: cves.filter(Boolean),
+                    cvss_scores: cvssScores.filter(s => s !== null),
+                    hop_count: pathNodes.length - 1,
+                    total_risk: totalRisk,
+                    severity: sev,
+                    categories: ['Privilege Escalation'],
+                    advanced_score: totalRisk
+                });
+            }
+        });
+    });
+    attackPaths.sort((a, b) => b.total_risk - a.total_risk);
+    data.attack_paths = attackPaths;
+
+    // 2. Cycle detection (DFS)
+    const cycles = [];
+    const visited = new Set();
+    const stack = [];
+    const stackSet = new Set();
+
+    function findCycles(u) {
+        visited.add(u);
+        stack.push(u);
+        stackSet.add(u);
+
+        const neighbors = adj.get(u) || [];
+        for (const ed of neighbors) {
+            const v = ed.target;
+            if (!visited.has(v)) {
+                findCycles(v);
+            } else if (stackSet.has(v)) {
+                const idx = stack.indexOf(v);
+                if (idx !== -1) {
+                    const cycleNodes = stack.slice(idx);
+                    if (cycleNodes.length >= 2) {
+                        cycles.push({
+                            node_ids: [...cycleNodes, v],
+                            node_names: [...cycleNodes, v].map(id => nodeMap.get(id)?.name || id)
+                        });
+                    }
+                }
+            }
+        }
+        stack.pop();
+        stackSet.delete(u);
+    }
+    nodes.forEach(n => { if (!visited.has(n.id)) findCycles(n.id); });
+    data.cycles = cycles;
+
+    // 3. Blast radius (BFS)
+    const blastRadius = [];
+    sources.forEach(src => {
+        const bfsVisited = new Set([src.id]);
+        const bQueue = [{ id: src.id, depth: 0 }];
+        const layers = { 1: [], 2: [], 3: [] };
+        while (bQueue.length > 0) {
+            const { id, depth } = bQueue.shift();
+            if (depth >= 3) continue;
+            const neighbors = adj.get(id) || [];
+            for (const ed of neighbors) {
+                if (!bfsVisited.has(ed.target)) {
+                    bfsVisited.add(ed.target);
+                    const nextDepth = depth + 1;
+                    if (layers[nextDepth]) layers[nextDepth].push(ed.target);
+                    bQueue.push({ id: ed.target, depth: nextDepth });
+                }
+            }
+        }
+        blastRadius.push({
+            source_id: src.id,
+            source_name: src.name,
+            total_affected: bfsVisited.size - 1,
+            max_depth: 3,
+            layers
+        });
+    });
+    data.blast_radius = blastRadius;
+
+    // 4. Critical nodes
+    const nodeUsage = new Map();
+    attackPaths.forEach(p => {
+        p.path_nodes.forEach(nid => {
+            if (!isSource(nodeMap.get(nid) || {}) && !isSink(nodeMap.get(nid) || {})) {
+                nodeUsage.set(nid, (nodeUsage.get(nid) || 0) + 1);
+            }
+        });
+    });
+    const topNodes = [...nodeUsage.entries()]
+        .map(([id, count]) => ({ id, name: nodeMap.get(id)?.name || id, paths_eliminated: count }))
+        .sort((a, b) => b.paths_eliminated - a.paths_eliminated);
+    data.critical_node = { top_nodes: topNodes };
+}
+
 function loadGraphData(data) {
+    // Automatically synthesize paths and metrics if loading a raw cluster graph
+    enrichRawClusterData(data);
+
     graphData = data;
     window.graphData = data;
 
