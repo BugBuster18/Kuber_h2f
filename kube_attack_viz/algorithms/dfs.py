@@ -108,7 +108,7 @@ def format_cycles(G: nx.DiGraph, result: CycleResult) -> str:
                 if G.has_edge(src, tgt):
                     total_risk += G.edges[src, tgt].get("weight", 0.0)
 
-            lines.append(f"    Cycle Risk: {total_risk:.2f}")
+            lines.append(f"    Cycle Cost (sum of edge weights): {total_risk:.2f}")
 
     lines.append("=" * 70)
     return "\n".join(lines)

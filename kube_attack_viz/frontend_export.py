@@ -70,6 +70,12 @@ def export_for_frontend(
             "weight": data.get("weight", 1.0),
             "cve": data.get("cve"),
             "cvss": data.get("cvss"),
+            **({
+                "p_success": round(data["p_success"], 4),
+                "category": data.get("category"),
+                "p_exploit": None if data.get("p_exploit") is None else round(data["p_exploit"], 4),
+                "exploit_evidence": data.get("exploit_evidence"),
+            } if "p_success" in data else {}),
         })
 
     # ── Attack paths ─────────────────────────────────────────────────────────
@@ -85,7 +91,9 @@ def export_for_frontend(
             "cves": p.cves,
             "cvss_scores": p.cvss_scores,
             "hop_count": p.hop_count,
-            "total_risk": p.total_risk,
+            "total_risk": round(p.total_risk, 2),
+            "total_cost": round(p.total_cost, 2),
+            "success_probability": None if p.success_probability is None else round(p.success_probability, 4),
             "severity": p.severity,
             "categories": categories,
             "advanced_score": round(score, 2),
@@ -129,6 +137,7 @@ def export_for_frontend(
             "tool": "KubeAttackViz",
             "version": "2.0.0",
             "generated_at": datetime.now(timezone.utc).isoformat(),
+            "weight_mode": G.graph.get("weight_mode", "static"),
         },
         "graph_summary": graph_summary(G),
         "nodes": nodes_data,

@@ -165,8 +165,12 @@ class AttackPath:
         cves: List of CVEs encountered along the path.
         cvss_scores: List of CVSS scores along the path.
         hop_count: Number of hops in the path.
-        total_risk: Sum of edge weights.
-        severity: Severity label (CRITICAL, HIGH, MEDIUM, LOW).
+        total_risk: Danger score (0-10). Higher = more dangerous. Combines the
+            value of the target with how easy the path is to traverse.
+        total_cost: Sum of (effective) edge weights — the attacker's effort.
+            Lower = easier. This is what Dijkstra minimizes.
+        severity: Severity label (CRITICAL, HIGH, MEDIUM, LOW), from total_risk.
+        success_probability: With learned weights, P(every hop succeeds).
     """
 
     path_nodes: list[str] = field(default_factory=list)
@@ -176,7 +180,9 @@ class AttackPath:
     cvss_scores: list[Optional[float]] = field(default_factory=list)
     hop_count: int = 0
     total_risk: float = 0.0
+    total_cost: float = 0.0
     severity: str = "LOW"
+    success_probability: Optional[float] = None  # learned weights only: exp(-total_cost)
 
     def to_dict(self) -> dict:
         """Serialize path to dictionary."""

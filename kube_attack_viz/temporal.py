@@ -38,7 +38,7 @@ import networkx as nx
 
 from .ingestion import ingest_from_json, ingest_from_kubectl, export_graph_to_json
 from .graph_builder import build_attack_graph, get_node_name, get_source_nodes, get_sink_nodes
-from .algorithms.dijkstra import shortest_attack_path, all_shortest_paths, _severity_label
+from .algorithms.dijkstra import all_shortest_paths
 from .models import AttackPath, ClusterGraph
 
 logger = logging.getLogger("kubeattackviz.temporal")
@@ -140,8 +140,11 @@ class TemporalDiff:
         removed_nodes: List of (node_id, name, type) tuples for removed nodes.
         new_edges: List of (source, target, relationship) tuples for added edges.
         removed_edges: List of (source, target, relationship) tuples for removed edges.
-        new_attack_paths: Attack paths that exist in new but not old graph.
-        removed_attack_paths: Attack paths that existed in old but not new graph.
+        new_attack_paths: Source→sink pairs reachable now but not before.
+        removed_attack_paths: Source→sink pairs no longer reachable.
+        changed_attack_paths: (old, new) pairs where the sink is still
+            reachable but the easiest route changed. Compare total_risk to see
+            whether the target got easier (escalated) or harder to reach.
         alerts: List of generated alerts.
         has_changes: Quick check for any structural changes.
     """
@@ -156,8 +159,10 @@ class TemporalDiff:
     removed_edges: list[tuple[str, str, str]] = field(default_factory=list)
     new_attack_paths: list[AttackPath] = field(default_factory=list)
     removed_attack_paths: list[AttackPath] = field(default_factory=list)
+    changed_attack_paths: list[tuple[AttackPath, AttackPath]] = field(default_factory=list)
     attributions: list[dict] = field(default_factory=list)
     alerts: list[TemporalAlert] = field(default_factory=list)
+    weight_mode: str = "static"
 
     @property
     def has_changes(self) -> bool:
@@ -168,7 +173,16 @@ class TemporalDiff:
             or self.removed_edges
             or self.new_attack_paths
             or self.removed_attack_paths
+            or self.changed_attack_paths
         )
+
+    @property
+    def escalated_attack_paths(self) -> list[tuple[AttackPath, AttackPath]]:
+        """Changed routes whose risk went up (target became easier to reach)."""
+        return [
+            (old, new) for old, new in self.changed_attack_paths
+            if new.total_risk > old.total_risk + 1e-9
+        ]
 
     def to_dict(self) -> dict:
         return {
@@ -176,6 +190,7 @@ class TemporalDiff:
             "old_snapshot_id": self.old_snapshot_id,
             "new_snapshot_id": self.new_snapshot_id,
             "timestamp": self.timestamp,
+            "weight_mode": self.weight_mode,
             "has_changes": self.has_changes,
             "new_nodes": [
                 {"id": n[0], "name": n[1], "type": n[2]} for n in self.new_nodes
@@ -193,6 +208,15 @@ class TemporalDiff:
             ],
             "new_attack_paths": [p.to_dict() for p in self.new_attack_paths],
             "removed_attack_paths": [p.to_dict() for p in self.removed_attack_paths],
+            "changed_attack_paths": [
+                {
+                    "old": old.to_dict(),
+                    "new": new.to_dict(),
+                    "risk_delta": round(new.total_risk - old.total_risk, 4),
+                    "escalated": new.total_risk > old.total_risk + 1e-9,
+                }
+                for old, new in self.changed_attack_paths
+            ],
             "attributions": self.attributions,
             "alerts": [a.to_dict() for a in self.alerts],
             "summary": {
@@ -202,6 +226,8 @@ class TemporalDiff:
                 "removed_edges_count": len(self.removed_edges),
                 "new_attack_paths_count": len(self.new_attack_paths),
                 "removed_attack_paths_count": len(self.removed_attack_paths),
+                "changed_attack_paths_count": len(self.changed_attack_paths),
+                "escalated_attack_paths_count": len(self.escalated_attack_paths),
                 "alert_count": len(self.alerts),
             },
         }
@@ -344,10 +370,16 @@ class SnapshotStore:
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 
-def _compute_path_keys(G: nx.DiGraph) -> dict[str, AttackPath]:
-    """Compute all source→sink attack paths keyed by exact node route."""
+def _compute_path_keys(G: nx.DiGraph) -> dict[tuple[str, str], AttackPath]:
+    """Compute the easiest attack path for each reachable (source, sink) pair.
+
+    Keyed by the (source, sink) pair rather than the exact route: we only
+    know the *shortest* route per pair, so a route-keyed diff would report a
+    mere re-route as one "new" path plus one "eliminated" path even though
+    the target never stopped being reachable.
+    """
     paths = all_shortest_paths(G)
-    return {"->".join(p.path_nodes): p for p in paths}
+    return {(p.path_nodes[0], p.path_nodes[-1]): p for p in paths}
 
 
 def temporal_diff(
@@ -400,6 +432,7 @@ def diff_clusters(
         old_snapshot_id=old_snapshot_id,
         new_snapshot_id=new_snapshot_id,
         timestamp=ts,
+        weight_mode=new_G.graph.get("weight_mode", "static"),
     )
 
     # ── Node diff ──────────────────────────────────────────────────────
@@ -437,6 +470,8 @@ def diff_clusters(
     for key, path in new_path_keys.items():
         if key not in old_path_keys:
             result.new_attack_paths.append(path)
+        elif old_path_keys[key].path_nodes != path.path_nodes:
+            result.changed_attack_paths.append((old_path_keys[key], path))
 
     for key, path in old_path_keys.items():
         if key not in new_path_keys:
@@ -446,7 +481,10 @@ def diff_clusters(
     new_node_id_set = {n[0] for n in result.new_nodes}
     new_edge_set = {(e[0], e[1]) for e in result.new_edges}
 
-    for path in result.new_attack_paths:
+    attributable = [(p, None) for p in result.new_attack_paths] + [
+        (new, old) for old, new in result.escalated_attack_paths
+    ]
+    for path, old_path in attributable:
         enabling_nodes = [nid for nid in path.path_nodes if nid in new_node_id_set]
         enabling_edges = []
         for i in range(len(path.path_nodes) - 1):
@@ -461,11 +499,21 @@ def diff_clusters(
         if enabling_edges:
             reasons.append(f"Establishing link(s): {', '.join(enabling_edges)}")
 
-        narrative = (
-            f"Attack path '{' → '.join(path.path_names)}' ({path.severity}, risk {path.total_risk:.2f}) "
-            f"was introduced by: {'; '.join(reasons) if reasons else 'topological reachability shift'}."
-        )
+        cause = '; '.join(reasons) if reasons else 'topological reachability shift'
+        if old_path is None:
+            narrative = (
+                f"Attack path '{' → '.join(path.path_names)}' ({path.severity}, risk {path.total_risk:.2f}/10) "
+                f"was introduced by: {cause}."
+            )
+        else:
+            narrative = (
+                f"'{path.path_names[-1]}' became easier to reach from '{path.path_names[0]}' "
+                f"(risk {old_path.total_risk:.2f} → {path.total_risk:.2f}/10, "
+                f"{old_path.hop_count} → {path.hop_count} hops, now {path.severity}) via "
+                f"'{' → '.join(path.path_names)}'. Caused by: {cause}."
+            )
         result.attributions.append({
+            "kind": "new" if old_path is None else "escalated",
             "path": " → ".join(path.path_names),
             "severity": path.severity,
             "risk": path.total_risk,
@@ -509,7 +557,9 @@ class AlertEngine:
     """Evaluates a TemporalDiff and produces security alerts.
 
     Alert categories:
-      - NEW_ATTACK_PATH: A new source→sink attack path has appeared.
+      - NEW_ATTACK_PATH: A source→sink pair became reachable.
+      - ATTACK_PATH_ESCALATED: A reachable sink got easier to reach (risk up).
+      - ATTACK_PATH_REROUTED: A route changed but risk did not increase.
       - NEW_HIGH_RISK_NODE: A sink or high-risk node was added.
       - SECURITY_CONTROL_REMOVED: A node/edge that was providing defense was removed.
       - ATTACK_SURFACE_EXPANDED: New edges increase the attack surface.
@@ -534,14 +584,18 @@ class AlertEngine:
             counter += 1
             return f"ALERT-{diff.diff_id[:8]}-{counter:03d}"
 
+        def _alert_sev(path_severity: str) -> str:
+            # A *change* that creates/worsens a path is more urgent than the
+            # path's static severity, so bump one level.
+            return (
+                "CRITICAL" if path_severity in ("CRITICAL", "HIGH") else
+                "HIGH" if path_severity == "MEDIUM" else "MEDIUM"
+            )
+
         # 1. New attack paths (most critical)
         for path in diff.new_attack_paths:
             severity = path.severity
-            # Escalate alert severity for critical/high paths
-            alert_sev = (
-                "CRITICAL" if severity in ("CRITICAL", "HIGH") else
-                "HIGH" if severity == "MEDIUM" else "MEDIUM"
-            )
+            alert_sev = _alert_sev(severity)
             alerts.append(TemporalAlert(
                 alert_id=_make_id(),
                 severity=alert_sev,
@@ -549,12 +603,35 @@ class AlertEngine:
                 title=f"New attack path: {' → '.join(path.path_names)}",
                 description=(
                     f"A new {severity}-severity attack path has been detected "
-                    f"with {path.hop_count} hops and total risk score {path.total_risk:.2f}. "
+                    f"with {path.hop_count} hops and risk score {path.total_risk:.2f}/10. "
                     f"Path: {' → '.join(path.path_names)}."
                 ),
                 timestamp=ts,
                 diff_ref=diff.diff_id,
                 details=path.to_dict(),
+            ))
+
+        # 1b. Existing targets that became easier to reach
+        for old, new in diff.changed_attack_paths:
+            escalated = new.total_risk > old.total_risk + 1e-9
+            route = ' → '.join(new.path_names)
+            alerts.append(TemporalAlert(
+                alert_id=_make_id(),
+                severity=_alert_sev(new.severity) if escalated else "INFO",
+                category="ATTACK_PATH_ESCALATED" if escalated else "ATTACK_PATH_REROUTED",
+                title=(
+                    f"Easier route to {new.path_names[-1]}: {route}" if escalated
+                    else f"Route to {new.path_names[-1]} changed (risk not increased)"
+                ),
+                description=(
+                    f"'{new.path_names[-1]}' was already reachable from '{new.path_names[0]}', "
+                    f"but the easiest route changed: risk {old.total_risk:.2f} → "
+                    f"{new.total_risk:.2f}/10 ({old.severity} → {new.severity}), "
+                    f"hops {old.hop_count} → {new.hop_count}. New route: {route}."
+                ),
+                timestamp=ts,
+                diff_ref=diff.diff_id,
+                details={"old": old.to_dict(), "new": new.to_dict()},
             ))
 
         # 2. New high-value nodes (sinks, high-risk)
@@ -665,7 +742,7 @@ class Neo4jExporter:
       - (:Alert {id, severity, category, title})
       - (:ClusterNode {id, name, type})  — with :NewNode / :RemovedNode labels
       - [:DIFF_FROM], [:DIFF_TO], [:TRIGGERED], [:ADDED], [:REMOVED]
-      - [:ATTACK_PATH_ADDED], [:ATTACK_PATH_REMOVED]
+      - [:ATTACK_PATH_ADDED], [:ATTACK_PATH_REMOVED], [:ATTACK_PATH_CHANGED]
 
     Thread-safe and connection-pooled for production use.
     """
@@ -911,6 +988,34 @@ class Neo4jExporter:
                     risk=path.total_risk,
                     hops=path.hop_count,
                     names=path.path_names,
+                )
+
+            for idx, (old, new) in enumerate(diff.changed_attack_paths):
+                path_id = f"{diff.diff_id}-path-chg-{idx}"
+                session.run(
+                    """
+                    MATCH (d:DiffEvent {diff_id: $did})
+                    CREATE (p:AttackPath {
+                        path_id: $pid,
+                        severity: $sev,
+                        total_risk: $risk,
+                        previous_risk: $old_risk,
+                        hop_count: $hops,
+                        path_names: $names,
+                        previous_path_names: $old_names,
+                        status: $status
+                    })
+                    MERGE (d)-[:ATTACK_PATH_CHANGED]->(p)
+                    """,
+                    did=diff.diff_id,
+                    pid=path_id,
+                    sev=new.severity,
+                    risk=new.total_risk,
+                    old_risk=old.total_risk,
+                    hops=new.hop_count,
+                    names=new.path_names,
+                    old_names=old.path_names,
+                    status="ESCALATED" if new.total_risk > old.total_risk + 1e-9 else "REROUTED",
                 )
 
             # 6. Create alert nodes
@@ -1169,15 +1274,26 @@ def format_temporal_diff(diff: TemporalDiff) -> str:
     for path in diff.new_attack_paths:
         lines.append(
             f"    ⚡ {' → '.join(path.path_names)} "
-            f"(risk: {path.total_risk:.2f}, severity: {path.severity})"
+            f"(risk: {path.total_risk:.2f}/10, severity: {path.severity})"
         )
+
+    # Changed routes to still-reachable targets
+    lines.append(f"\n  ⚠️  Changed Attack Routes: {len(diff.changed_attack_paths)}")
+    for old, new in diff.changed_attack_paths:
+        arrow = "▲ EASIER" if new.total_risk > old.total_risk + 1e-9 else "▼ harder/same"
+        lines.append(
+            f"    {arrow}: {new.path_names[0]} → {new.path_names[-1]} "
+            f"(risk {old.total_risk:.2f} → {new.total_risk:.2f}, "
+            f"{old.severity} → {new.severity})"
+        )
+        lines.append(f"      now via: {' → '.join(new.path_names)}")
 
     # Removed attack paths
     lines.append(f"\n  ✅ Eliminated Attack Paths: {len(diff.removed_attack_paths)}")
     for path in diff.removed_attack_paths:
         lines.append(
             f"    ✓ {' → '.join(path.path_names)} "
-            f"(was risk: {path.total_risk:.2f})"
+            f"(was risk: {path.total_risk:.2f}/10)"
         )
 
     # Causal Impact Attribution

@@ -263,175 +263,288 @@ async function loadDemoData() {
     }
 }
 
-// Client-side synthesizer: Computes attack paths, cycles, and blast radius
-// for raw cluster graphs (e.g. directly uploaded or selected JSONs)
+// ─── Client-side analysis (mirrors the Python CLI) ─────────────────────────
+//
+// Used when a raw cluster graph (no precomputed attack_paths) is loaded.
+// Keep in sync with:
+//   kube_attack_viz/graph_builder.py        (CVSS edge weighting)
+//   kube_attack_viz/algorithms/dijkstra.py  (risk model + severity)
+//   kube_attack_viz/classifier.py           (categories + advanced score)
+//   kube_attack_viz/algorithms/critical_node.py, dfs.py, bfs.py
+
+const RISK_COST_SCALE = 10;
+const DEFAULT_SINK_IMPACT = 5;
+const PATH_CUTOFF = 15;          // max hops for simple-path enumeration
+const PATH_COUNT_BUDGET = 200000; // safety cap for path counting in the browser
+const MAX_CYCLES = 500;
+
+/** Danger score 0-10: valuable target + cheap path = high risk. */
+function computePathRisk(sinkImpact, totalCost) {
+    const impact = Number.isFinite(sinkImpact) ? sinkImpact : DEFAULT_SINK_IMPACT;
+    return impact / (1 + Math.max(totalCost, 0) / RISK_COST_SCALE);
+}
+
+function severityLabel(risk) {
+    if (risk >= 7) return 'CRITICAL';
+    if (risk >= 5) return 'HIGH';
+    if (risk >= 3) return 'MEDIUM';
+    return 'LOW';
+}
+
+/** Edge weight after CVSS reduction (lower = easier for the attacker). */
+function effectiveEdgeWeight(e) {
+    const base = Number(e.weight);
+    const w = Number.isFinite(base) ? base : 1.0;
+    if (e.cvss === null || e.cvss === undefined || e.cvss === '') return w;
+    return Math.max(0.1, w * (1 - Number(e.cvss) / 10));
+}
+
+const _CLS = {
+    privRels:  new Set(['escalates_to', 'grants', 'binds_to']),
+    latRels:   new Set(['connects_to', 'exposes', 'uses']),
+    credRels:  new Set(['mounts', 'accesses', 'has_secret', 'reads']),
+    privTypes: new Set(['clusterrole', 'role', 'clusterrolebinding', 'rolebinding']),
+    exfilTypes: new Set(['database', 'secret']),
+};
+
+function classifyPathJS(pathNodes, rels, nodeMap) {
+    const cats = new Set();
+    const relSet = new Set(rels);
+    const types = pathNodes.map(id => (nodeMap.get(id)?.type || '').toLowerCase());
+    const typeSet = new Set(types);
+    const any = (set, pool) => [...pool].some(x => set.has(x));
+
+    if (any(_CLS.privRels, relSet) && any(_CLS.privTypes, typeSet)) cats.add('Privilege Escalation');
+    if (any(_CLS.latRels, relSet) && types.filter(t => t === 'pod').length >= 2) cats.add('Lateral Movement');
+    if (any(_CLS.credRels, relSet) && typeSet.has('secret')) cats.add('Credential Theft');
+    const last = nodeMap.get(pathNodes[pathNodes.length - 1]);
+    if (last && _CLS.exfilTypes.has((last.type || '').toLowerCase()) && last.is_sink) cats.add('Data Exfiltration');
+    if (cats.size === 0) cats.add('General Access');
+    return [...cats].sort();
+}
+
+/**
+ * Build the analysis graph from raw cluster JSON, matching build_attack_graph():
+ * types lowercased, dangling edges skipped, one edge per (source, target).
+ */
+function buildAnalysisGraph(data) {
+    const nodes = (data.nodes || []).map(n => ({ ...n, type: (n.type || 'unknown').toLowerCase() }));
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+    // Python uses the is_source / is_sink flags. Fall back to type
+    // heuristics only for hand-made files that carry no flags at all.
+    const hasFlags = nodes.some(n => 'is_source' in n || 'is_sink' in n);
+    nodes.forEach(n => {
+        if (!hasFlags) {
+            n.is_source = ['externalactor', 'ingress'].includes(n.type);
+            n.is_sink = ['secret', 'database'].includes(n.type);
+        } else {
+            n.is_source = n.is_source === true;
+            n.is_sink = n.is_sink === true;
+        }
+    });
+
+    const edgeByPair = new Map(); // DiGraph semantics: last (s,t) edge wins
+    for (const e of (data.edges || [])) {
+        if (!nodeMap.has(e.source) || !nodeMap.has(e.target)) continue;
+        edgeByPair.set(`${e.source}|${e.target}`, {
+            source: e.source, target: e.target,
+            rel: e.relationship || '', cve: e.cve ?? null,
+            cvss: (e.cvss === null || e.cvss === undefined) ? null : Number(e.cvss),
+            weight: effectiveEdgeWeight(e),
+        });
+    }
+    const adj = new Map(nodes.map(n => [n.id, []]));
+    for (const e of edgeByPair.values()) adj.get(e.source).push(e);
+
+    return {
+        nodes, nodeMap, adj,
+        sources: nodes.filter(n => n.is_source).map(n => n.id),
+        sinks: nodes.filter(n => n.is_sink).map(n => n.id),
+    };
+}
+
+/** Dijkstra from one source; returns {dist, prevEdge}. */
+function dijkstraFrom(g, srcId) {
+    const dist = new Map([[srcId, 0]]);
+    const prevEdge = new Map();
+    const done = new Set();
+    while (true) {
+        let cur = null, best = Infinity;
+        for (const [id, d] of dist) {
+            if (!done.has(id) && d < best) { best = d; cur = id; }
+        }
+        if (cur === null) break;
+        done.add(cur);
+        for (const e of g.adj.get(cur) || []) {
+            const alt = best + e.weight;
+            if (alt < (dist.get(e.target) ?? Infinity)) {
+                dist.set(e.target, alt);
+                prevEdge.set(e.target, e);
+            }
+        }
+    }
+    return { dist, prevEdge };
+}
+
+function computeAttackPaths(g) {
+    const paths = [];
+    for (const src of g.sources) {
+        const { dist, prevEdge } = dijkstraFrom(g, src);
+        for (const sink of g.sinks) {
+            if (sink === src || !dist.has(sink)) continue;
+            const hops = [];
+            for (let cur = sink; cur !== src; cur = prevEdge.get(cur).source) hops.unshift(prevEdge.get(cur));
+            const pathNodes = [src, ...hops.map(h => h.target)];
+            const rels = hops.map(h => h.rel);
+            const cvssScores = hops.map(h => h.cvss);
+            const totalCost = dist.get(sink);
+            const totalRisk = computePathRisk(g.nodeMap.get(sink).risk_score, totalCost);
+            const maxCvss = Math.max(0, ...cvssScores.filter(c => c !== null));
+            paths.push({
+                path_nodes: pathNodes,
+                path_names: pathNodes.map(id => g.nodeMap.get(id)?.name || id),
+                relationships: rels,
+                cves: hops.map(h => h.cve),           // aligned per hop, like Python
+                cvss_scores: cvssScores,
+                hop_count: hops.length,
+                total_risk: Math.round(totalRisk * 100) / 100,
+                total_cost: Math.round(totalCost * 100) / 100,
+                severity: severityLabel(totalRisk),
+                categories: classifyPathJS(pathNodes, rels, g.nodeMap),
+                advanced_score: Math.round((totalRisk * 0.7 + maxCvss * 0.3) * 100) / 100,
+            });
+        }
+    }
+    paths.sort((a, b) => (b.total_risk - a.total_risk) || (a.total_cost - b.total_cost));
+    return paths;
+}
+
+/** All elementary cycles: each found once, starting from its lowest-index node. */
+function computeCycles(g) {
+    const order = new Map(g.nodes.map((n, i) => [n.id, i]));
+    const cycles = [];
+    for (const start of g.nodes.map(n => n.id)) {
+        const s = order.get(start);
+        const stack = [start];
+        const onStack = new Set([start]);
+        const walk = (u) => {
+            for (const e of g.adj.get(u) || []) {
+                if (cycles.length >= MAX_CYCLES) return;
+                const v = e.target;
+                if (v === start && stack.length >= 2) {
+                    cycles.push({ node_ids: [...stack], node_names: stack.map(id => g.nodeMap.get(id)?.name || id) });
+                } else if (order.get(v) > s && !onStack.has(v)) {
+                    stack.push(v); onStack.add(v);
+                    walk(v);
+                    stack.pop(); onStack.delete(v);
+                }
+            }
+        };
+        walk(start);
+    }
+    return cycles;
+}
+
+function computeBlastRadius(g, maxDepth = 3) {
+    return g.sources.map(src => {
+        const visited = new Set([src]);
+        const queue = [[src, 0]];
+        const layers = {};
+        while (queue.length) {
+            const [id, depth] = queue.shift();
+            if (depth > 0) (layers[depth] = layers[depth] || []).push(id);
+            if (depth >= maxDepth) continue;
+            for (const e of g.adj.get(id) || []) {
+                if (!visited.has(e.target)) { visited.add(e.target); queue.push([e.target, depth + 1]); }
+            }
+        }
+        return {
+            source: src,
+            source_name: g.nodeMap.get(src)?.name || src,
+            max_depth: maxDepth,
+            total_affected: Object.values(layers).reduce((n, l) => n + l.length, 0),
+            layers,
+        };
+    });
+}
+
+/** Blast radius from any node (not only sources), same BFS as the CLI. */
+function blastRadiusForNode(data, nodeId, maxDepth = 3) {
+    const g = buildAnalysisGraph(data);
+    if (!g.nodeMap.has(nodeId)) return null;
+    return computeBlastRadius({ ...g, sources: [nodeId] }, maxDepth)[0];
+}
+
+/** Count simple source→sink paths (≤ PATH_CUTOFF hops), optionally excluding a node. */
+function countSourceSinkPaths(g, excluded, budget) {
+    const sinkSet = new Set(g.sinks);
+    let total = 0;
+    for (const src of g.sources) {
+        if (src === excluded) continue;
+        const onPath = new Set([src]);
+        const walk = (u, depth) => {
+            if (budget.left-- <= 0) throw new Error('path budget exceeded');
+            if (depth >= PATH_CUTOFF) return;
+            for (const e of g.adj.get(u) || []) {
+                const v = e.target;
+                if (v === excluded || onPath.has(v)) continue;
+                if (sinkSet.has(v)) total++;
+                onPath.add(v); walk(v, depth + 1); onPath.delete(v);
+            }
+        };
+        walk(src, 0);
+    }
+    return total;
+}
+
+/** Graph surgery, like critical_node_analysis(): remove each node, recount paths. */
+function computeCriticalNodes(g, topN = 5) {
+    const budget = { left: PATH_COUNT_BUDGET };
+    try {
+        const baseline = countSourceSinkPaths(g, null, budget);
+        const impact = [];
+        for (const n of g.nodes) {
+            if (n.is_source || n.is_sink) continue;
+            const eliminated = baseline - countSourceSinkPaths(g, n.id, budget);
+            if (eliminated > 0) impact.push({ id: n.id, name: n.name || n.id, paths_eliminated: eliminated });
+        }
+        impact.sort((a, b) => b.paths_eliminated - a.paths_eliminated);
+        return { baseline_paths: baseline, top_nodes: impact.slice(0, topN) };
+    } catch (err) {
+        console.warn('Critical node analysis skipped (graph too large for the browser). Use the CLI export-frontend command.');
+        return { baseline_paths: 0, top_nodes: [] };
+    }
+}
+
+/** Full client-side analysis of a raw cluster graph. */
+function analyzeCluster(data, { critical = true } = {}) {
+    const g = buildAnalysisGraph(data);
+    return {
+        nodes: g.nodes,   // types lowercased + source/sink flags, like the CLI
+        attack_paths: computeAttackPaths(g),
+        cycles: computeCycles(g),
+        blast_radius: computeBlastRadius(g),
+        critical_node: critical ? computeCriticalNodes(g) : { baseline_paths: 0, top_nodes: [] },
+    };
+}
+
 function enrichRawClusterData(data) {
     if (!data.nodes || !data.edges) return;
-    if (data.attack_paths && data.attack_paths.length > 0) return; // Already precomputed
-
-    const nodes = data.nodes;
-    const edges = data.edges;
-    const nodeMap = new Map();
-    nodes.forEach(n => nodeMap.set(n.id, n));
-
-    const isSource = n => n.is_source === true || ['externalactor', 'ingress'].includes((n.type || '').toLowerCase());
-    const isSink = n => n.is_sink === true || ['secret', 'database'].includes((n.type || '').toLowerCase());
-
-    const sources = nodes.filter(isSource);
-    const sinks = nodes.filter(isSink);
-
-    const adj = new Map();
-    edges.forEach(e => {
-        if (!adj.has(e.source)) adj.set(e.source, []);
-        adj.get(e.source).push({ target: e.target, rel: e.relationship, weight: Number(e.weight) || 1.0, cve: e.cve, cvss: e.cvss });
-    });
-
-    // 1. Attack Paths (Shortest paths source to sink)
-    const attackPaths = [];
-    sources.forEach(src => {
-        sinks.forEach(snk => {
-            if (src.id === snk.id) return;
-            const dist = new Map();
-            const prev = new Map();
-            const prevEdge = new Map();
-            const queue = [src.id];
-            dist.set(src.id, 0);
-
-            while (queue.length > 0) {
-                queue.sort((a, b) => (dist.get(a) || Infinity) - (dist.get(b) || Infinity));
-                const curr = queue.shift();
-                if (curr === snk.id) break;
-
-                const currDist = dist.get(curr);
-                const neighbors = adj.get(curr) || [];
-                for (const ed of neighbors) {
-                    const alt = currDist + ed.weight;
-                    if (alt < (dist.get(ed.target) ?? Infinity)) {
-                        dist.set(ed.target, alt);
-                        prev.set(ed.target, curr);
-                        prevEdge.set(ed.target, ed);
-                        if (!queue.includes(ed.target)) queue.push(ed.target);
-                    }
-                }
-            }
-
-            if (dist.has(snk.id)) {
-                const pathNodes = [];
-                const relationships = [];
-                const cves = [];
-                const cvssScores = [];
-                let curr = snk.id;
-                while (curr) {
-                    pathNodes.unshift(curr);
-                    const pe = prevEdge.get(curr);
-                    if (pe) {
-                        relationships.unshift(pe.rel || '');
-                        cves.unshift(pe.cve || null);
-                        cvssScores.unshift(pe.cvss || null);
-                    }
-                    curr = prev.get(curr);
-                }
-
-                const totalRisk = dist.get(snk.id);
-                const sev = totalRisk > 15 ? 'CRITICAL' : totalRisk > 8 ? 'HIGH' : totalRisk > 4 ? 'MEDIUM' : 'LOW';
-                attackPaths.push({
-                    path_nodes: pathNodes,
-                    path_names: pathNodes.map(id => nodeMap.get(id)?.name || id),
-                    relationships,
-                    cves: cves.filter(Boolean),
-                    cvss_scores: cvssScores.filter(s => s !== null),
-                    hop_count: pathNodes.length - 1,
-                    total_risk: totalRisk,
-                    severity: sev,
-                    categories: ['Privilege Escalation'],
-                    advanced_score: totalRisk
-                });
-            }
-        });
-    });
-    attackPaths.sort((a, b) => b.total_risk - a.total_risk);
-    data.attack_paths = attackPaths;
-
-    // 2. Cycle detection (DFS)
-    const cycles = [];
-    const visited = new Set();
-    const stack = [];
-    const stackSet = new Set();
-
-    function findCycles(u) {
-        visited.add(u);
-        stack.push(u);
-        stackSet.add(u);
-
-        const neighbors = adj.get(u) || [];
-        for (const ed of neighbors) {
-            const v = ed.target;
-            if (!visited.has(v)) {
-                findCycles(v);
-            } else if (stackSet.has(v)) {
-                const idx = stack.indexOf(v);
-                if (idx !== -1) {
-                    const cycleNodes = stack.slice(idx);
-                    if (cycleNodes.length >= 2) {
-                        cycles.push({
-                            node_ids: [...cycleNodes, v],
-                            node_names: [...cycleNodes, v].map(id => nodeMap.get(id)?.name || id)
-                        });
-                    }
-                }
-            }
-        }
-        stack.pop();
-        stackSet.delete(u);
-    }
-    nodes.forEach(n => { if (!visited.has(n.id)) findCycles(n.id); });
-    data.cycles = cycles;
-
-    // 3. Blast radius (BFS)
-    const blastRadius = [];
-    sources.forEach(src => {
-        const bfsVisited = new Set([src.id]);
-        const bQueue = [{ id: src.id, depth: 0 }];
-        const layers = { 1: [], 2: [], 3: [] };
-        while (bQueue.length > 0) {
-            const { id, depth } = bQueue.shift();
-            if (depth >= 3) continue;
-            const neighbors = adj.get(id) || [];
-            for (const ed of neighbors) {
-                if (!bfsVisited.has(ed.target)) {
-                    bfsVisited.add(ed.target);
-                    const nextDepth = depth + 1;
-                    if (layers[nextDepth]) layers[nextDepth].push(ed.target);
-                    bQueue.push({ id: ed.target, depth: nextDepth });
-                }
-            }
-        }
-        blastRadius.push({
-            source_id: src.id,
-            source_name: src.name,
-            total_affected: bfsVisited.size - 1,
-            max_depth: 3,
-            layers
-        });
-    });
-    data.blast_radius = blastRadius;
-
-    // 4. Critical nodes
-    const nodeUsage = new Map();
-    attackPaths.forEach(p => {
-        p.path_nodes.forEach(nid => {
-            if (!isSource(nodeMap.get(nid) || {}) && !isSink(nodeMap.get(nid) || {})) {
-                nodeUsage.set(nid, (nodeUsage.get(nid) || 0) + 1);
-            }
-        });
-    });
-    const topNodes = [...nodeUsage.entries()]
-        .map(([id, count]) => ({ id, name: nodeMap.get(id)?.name || id, paths_eliminated: count }))
-        .sort((a, b) => b.paths_eliminated - a.paths_eliminated);
-    data.critical_node = { top_nodes: topNodes };
+    if (Array.isArray(data.attack_paths)) return; // Precomputed by the CLI (export-frontend)
+    Object.assign(data, analyzeCluster(data));
 }
 
 function loadGraphData(data) {
+    // Drop comment-only entries and edges pointing at missing nodes, exactly
+    // like the CLI does (D3's forceLink throws "node not found" on them).
+    const nodeIds = new Set((data.nodes || []).map(n => n.id));
+    const rawEdgeCount = (data.edges || []).length;
+    data.edges = (data.edges || []).filter(e => e && nodeIds.has(e.source) && nodeIds.has(e.target));
+    if (data.edges.length < rawEdgeCount) {
+        console.warn(`Skipped ${rawEdgeCount - data.edges.length} edge entr(ies) without valid source/target nodes.`);
+    }
+
     // Automatically synthesize paths and metrics if loading a raw cluster graph
     enrichRawClusterData(data);
 
@@ -443,6 +556,12 @@ function loadGraphData(data) {
     document.getElementById('edge-count').textContent   = (data.edges || []).length;
     document.getElementById('path-count').textContent   = (data.attack_paths || []).length;
     document.getElementById('cycle-count').textContent   = (data.cycles || []).length;
+    const brandTag = document.querySelector('.brand-tag');
+    if (brandTag) {
+        const learned = data.metadata?.weight_mode === 'learned';
+        brandTag.textContent = learned ? 'v2.0 · ML weights' : 'v2.0';
+        brandTag.title = learned ? 'Edge weights = -ln P(success) from the trained models' : 'Static edge weights';
+    }
 
     // Build lookup sets
     buildLookups(data);
@@ -513,6 +632,8 @@ function renderPathCards(paths) {
         const severity = path.severity || 'LOW';
         const hops = path.hop_count || ((path.path_nodes || []).length - 1);
         const risk = (path.total_risk || 0).toFixed(1);
+        const prob = (typeof path.success_probability === 'number')
+            ? ` • P ${(path.success_probability * 100).toFixed(1)}%` : '';
 
         card.innerHTML = `
             <div class="path-card-header">
@@ -521,7 +642,7 @@ function renderPathCards(paths) {
             </div>
             <div class="path-card-route">${names}</div>
             <div class="path-card-footer">
-                <span style="font-size:0.68rem; color:var(--text-3); font-family:'JetBrains Mono',monospace">${hops} hops • Risk ${risk}</span>
+                <span style="font-size:0.68rem; color:var(--text-3); font-family:'JetBrains Mono',monospace">${hops} hops • Risk ${risk}${prob}</span>
                 <button type="button" class="btn-explain-nlp" data-idx="${idx}" title="Explain this attack path in plain English">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     Explain
@@ -954,7 +1075,8 @@ function showDetailPanel(d) {
                 ${outEdges.map(e => {
                     const targetNode = graphData.nodes.find(n => n.id === e.target);
                     const targetName = targetNode ? targetNode.name : e.target;
-                    return `<li><strong>→ ${targetName}</strong> (${e.relationship})</li>`;
+                    const p = (typeof e.p_success === 'number') ? ` — P ${(e.p_success * 100).toFixed(0)}%` : '';
+                    return `<li><strong>→ ${targetName}</strong> (${e.relationship})${p}</li>`;
                 }).join('')}
                 ${inEdges.map(e => {
                     const sourceNode = graphData.nodes.find(n => n.id === e.source);

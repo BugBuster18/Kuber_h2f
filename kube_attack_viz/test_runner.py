@@ -135,9 +135,9 @@ def run_all_tests() -> TestResult:
         assert path.path_nodes[0] == "A", "Path should start at A"
         assert path.path_nodes[-1] == "D", "Path should end at D"
         # Shortest: A→B→E→D (2.0+2.5+4.0=8.5) vs A→B→C→D (2.0+3.0+5.0=10.0)
-        assert path.total_risk <= 10.0, f"Should find cheaper path, got {path.total_risk}"
+        assert path.total_cost <= 10.0, f"Should find cheaper path, got {path.total_cost}"
         assert path.hop_count >= 2, "Should have at least 2 hops"
-        result.ok(f"Dijkstra shortest path: A→D cost={path.total_risk:.1f}")
+        result.ok(f"Dijkstra shortest path: A→D cost={path.total_cost:.1f}")
     except (AssertionError, ValueError) as e:
         result.fail("Dijkstra shortest path", str(e))
 
@@ -148,8 +148,8 @@ def run_all_tests() -> TestResult:
         # Dijkstra should prefer A→B→E→D (weight 8.5) over A→B→C→D (10.0)
         assert path is not None
         expected_weight = 8.5
-        assert abs(path.total_risk - expected_weight) < 0.01, (
-            f"Dijkstra should find weight {expected_weight}, got {path.total_risk}"
+        assert abs(path.total_cost - expected_weight) < 0.01, (
+            f"Dijkstra should find weight {expected_weight}, got {path.total_cost}"
         )
         result.ok("Dijkstra uses weights: confirmed weight-based selection")
     except (AssertionError, ValueError) as e:
@@ -166,7 +166,7 @@ def run_all_tests() -> TestResult:
             result.ok("Dijkstra no-path: returns None correctly")
         else:
             # D might reach A through cycle C→B→...
-            result.ok(f"Dijkstra D→A: found path (graph has cycles), risk={path.total_risk:.1f}")
+            result.ok(f"Dijkstra D→A: found path (graph has cycles), cost={path.total_cost:.1f}")
     except (ValueError, Exception) as e:
         result.fail("Dijkstra no-path", str(e))
 
@@ -203,9 +203,9 @@ def run_all_tests() -> TestResult:
         path_sources = {p.path_nodes[0] for p in paths}
         assert "A" in path_sources, "Should have path from A"
         assert "F" in path_sources, "Should have path from F"
-        # Verify ascending sort
+        # Verify most-dangerous-first sort
         for i in range(len(paths) - 1):
-            assert paths[i].total_risk <= paths[i + 1].total_risk, "Paths not sorted ascending"
+            assert paths[i].total_risk >= paths[i + 1].total_risk, "Paths not sorted by risk descending"
         result.ok(f"All source→sink paths: found {len(paths)}, sorted correctly")
     except AssertionError as e:
         result.fail("All source→sink paths", str(e))
@@ -229,14 +229,14 @@ def run_all_tests() -> TestResult:
     # ── Test 12: Severity labels ──────────────────────────────────────────────
     try:
         from .algorithms.dijkstra import _severity_label
-        assert _severity_label(25.0) == "CRITICAL"
-        assert _severity_label(15.0) == "HIGH"
-        assert _severity_label(8.0) == "MEDIUM"
-        assert _severity_label(3.0) == "LOW"
-        assert _severity_label(5.0) == "LOW"   # <= 5 is LOW
-        # 20.0 is not > 20, so it falls to > 10 → HIGH
-        assert _severity_label(20.0) == "HIGH"
-        assert _severity_label(20.01) == "CRITICAL"
+        assert _severity_label(10.0) == "CRITICAL"
+        assert _severity_label(7.0) == "CRITICAL"   # >= 7
+        assert _severity_label(6.99) == "HIGH"
+        assert _severity_label(5.0) == "HIGH"       # >= 5
+        assert _severity_label(4.99) == "MEDIUM"
+        assert _severity_label(3.0) == "MEDIUM"     # >= 3
+        assert _severity_label(2.99) == "LOW"
+        assert _severity_label(0.0) == "LOW"
         result.ok("Severity labels: correct thresholds")
     except AssertionError as e:
         result.fail("Severity labels", str(e))
@@ -251,6 +251,174 @@ def run_all_tests() -> TestResult:
         result.ok("Node name resolution: exact, name, case-insensitive all work")
     except AssertionError as e:
         result.fail("Node name resolution", str(e))
+
+    # ── Test 14: Risk rises as attack effort falls ───────────────────────────
+    try:
+        from .algorithms.dijkstra import compute_path_risk
+        # Same target: a cheaper path must be MORE dangerous, never less.
+        assert compute_path_risk(10.0, 2.0) > compute_path_risk(10.0, 12.0), (
+            "Cheaper path to same target should have higher risk"
+        )
+        # Same cost: a more valuable target must be MORE dangerous.
+        assert compute_path_risk(10.0, 5.0) > compute_path_risk(4.0, 5.0)
+        # A CVE on an edge lowers cost, so it must RAISE path risk.
+        def _risk_with(cvss):
+            cg = ClusterGraph(
+                nodes=[
+                    NodeData(id="S", type="pod", name="s", namespace="t", risk_score=3.0, is_source=True),
+                    NodeData(id="T", type="secret", name="t", namespace="t", risk_score=9.0, is_sink=True),
+                ],
+                edges=[EdgeData(source="S", target="T", relationship="mounts", weight=4.0,
+                                cve="CVE-X" if cvss else None, cvss=cvss)],
+            )
+            return shortest_attack_path(build_attack_graph(cg), "S", "T").total_risk
+        assert _risk_with(9.8) > _risk_with(None), "A CVE on the path should raise risk"
+        result.ok("Risk model: cheaper path / CVE / valuable target → higher risk")
+    except (AssertionError, ValueError) as e:
+        result.fail("Risk model monotonicity", str(e))
+
+    # ── Test 15: Temporal diff — reroute is not 'new + eliminated' ────────────
+    try:
+        from .temporal import diff_clusters
+
+        def _cluster(extra_shortcut: bool) -> ClusterGraph:
+            nodes = [
+                NodeData(id="I", type="externalactor", name="internet", namespace="x", risk_score=1.0, is_source=True),
+                NodeData(id="P", type="pod", name="pod", namespace="x", risk_score=4.0),
+                NodeData(id="S", type="serviceaccount", name="sa", namespace="x", risk_score=5.0),
+                NodeData(id="DB", type="database", name="db", namespace="x", risk_score=10.0, is_sink=True),
+            ]
+            edges = [
+                EdgeData(source="I", target="P", relationship="exposes", weight=4.0),
+                EdgeData(source="P", target="S", relationship="runs_as", weight=4.0),
+                EdgeData(source="S", target="DB", relationship="accesses", weight=4.0),
+            ]
+            if extra_shortcut:
+                nodes.append(NodeData(id="DBG", type="pod", name="debug-pod", namespace="x", risk_score=8.0))
+                edges += [
+                    EdgeData(source="I", target="DBG", relationship="exposes", weight=0.5),
+                    EdgeData(source="DBG", target="DB", relationship="accesses", weight=0.5),
+                ]
+            return ClusterGraph(nodes=nodes, edges=edges)
+
+        d = diff_clusters(_cluster(False), _cluster(True))
+        assert not d.new_attack_paths, f"Reroute reported as new path: {d.new_attack_paths}"
+        assert not d.removed_attack_paths, "Still-reachable target reported as eliminated"
+        assert len(d.escalated_attack_paths) == 1, "Easier route should be flagged as escalated"
+        cats = {a.category for a in d.alerts}
+        assert "ATTACK_PATH_ESCALATED" in cats, f"Missing escalation alert, got {cats}"
+        assert "ATTACK_PATH_ELIMINATED" not in cats, "False 'eliminated' alert"
+        # And the reverse direction is a genuine elimination of nothing:
+        d_rev = diff_clusters(_cluster(True), _cluster(False))
+        assert not d_rev.removed_attack_paths and not d_rev.escalated_attack_paths
+        result.ok("Temporal diff: reroute flagged as escalation, no false new/eliminated")
+    except (AssertionError, ValueError) as e:
+        result.fail("Temporal reroute handling", str(e))
+
+    # ── Test 16: Explanations keep type capitalization ───────────────────────
+    try:
+        from .nlp_explainer import explain_path
+        path = shortest_attack_path(G, "A", "D")
+        text = explain_path(G, path)
+        assert "The serviceaccount" not in text and "The ServiceAccount" in text, (
+            "Step text should read 'The ServiceAccount', not 'The serviceaccount'"
+        )
+        result.ok("NLP explainer: resource type capitalization preserved")
+    except (AssertionError, ValueError) as e:
+        result.fail("NLP capitalization", str(e))
+
+    # ── Test 17: Edge categorization normalizes free-form relationships ──────
+    try:
+        from .ml.techniques import categorize_edge
+        cases = {
+            ("externalactor", "exposes", "ingress"): "endpoint_reachability",
+            ("ingress", "routes-to", "pod"): "workload_entry",
+            ("pod", "runs_as", "serviceaccount"): "identity_use",
+            ("serviceaccount", "bound-to", "clusterrole"): "rbac_binding",
+            ("role", "can-read", "secret"): "config_access",
+            ("secret", "grants_access", "database"): "data_store_access",
+            ("deployment", "creates", "pod"): "workload_control",
+            ("pod", "monitors", "pod"): "workload_to_workload",
+        }
+        for (src, rel, tgt), want in cases.items():
+            got = categorize_edge(src, rel, tgt)
+            assert got == want, f"{src}-{rel}->{tgt}: expected {want}, got {got}"
+        assert categorize_edge("pod", "routes_to", "pod") == categorize_edge("pod", "ROUTES-TO", "pod")
+        result.ok("Edge categorization: spellings/case normalized, categories correct")
+    except AssertionError as e:
+        result.fail("Edge categorization", str(e))
+
+    # ── Test 18: Probability ↔ weight math ───────────────────────────────────
+    try:
+        import math
+        from .ml.weights import combine, probability_to_weight, P_MIN, P_MAX
+        assert abs(probability_to_weight(0.5) - math.log(2)) < 1e-12
+        assert probability_to_weight(0.9) < probability_to_weight(0.1), "Easier edge must be cheaper"
+        assert probability_to_weight(0.0) == -math.log(P_MIN) and probability_to_weight(1.0) == -math.log(P_MAX)
+        assert combine(0.3, None) == 0.3
+        assert combine(0.3, 0.5) > 0.3 and abs(combine(0.3, 0.0) - 0.3) < 1e-12, "A CVE can only raise P"
+        assert abs(combine(0.2, 0.25) - 0.4) < 1e-12  # 1 - 0.8*0.75
+        result.ok("Learned weights: weight = -ln P, CVE evidence only raises P")
+    except AssertionError as e:
+        result.fail("Probability/weight math", str(e))
+
+    # ── Tests 19-20: need trained models ─────────────────────────────────────
+    from .ml.weights import models_available
+    if not models_available():
+        result.ok("Learned-mode tests skipped (no trained models — run ml-train)")
+    else:
+        # Test 19: learned graph end to end
+        try:
+            import math
+            cluster = ClusterGraph(
+                nodes=[
+                    NodeData(id="I", type="ingress", name="ing", namespace="t", risk_score=3.0, is_source=True),
+                    NodeData(id="P", type="pod", name="web", namespace="t", risk_score=5.0,
+                             cves=["CVE-2023-44487"]),
+                    NodeData(id="S", type="serviceaccount", name="sa", namespace="t", risk_score=5.0),
+                    NodeData(id="K", type="secret", name="key", namespace="t", risk_score=9.0, is_sink=True),
+                ],
+                edges=[
+                    EdgeData(source="I", target="P", relationship="routes_to", weight=2.0),
+                    EdgeData(source="P", target="S", relationship="runs_as", weight=2.0),
+                    EdgeData(source="S", target="K", relationship="can-read", weight=2.0),
+                ],
+            )
+            Gl = build_attack_graph(cluster, weight_mode="learned")
+            assert Gl.graph["weight_mode"] == "learned"
+            probs = []
+            for u, v, d in Gl.edges(data=True):
+                assert 0 < d["p_success"] < 1
+                assert abs(d["weight"] + math.log(d["p_success"])) < 1e-9, "weight != -ln p"
+                probs.append(d["p_success"])
+            path = shortest_attack_path(Gl, "I", "K")
+            assert abs(path.success_probability - math.prod(probs)) < 1e-9, "P(path) != product of hops"
+            assert abs(path.total_risk - 9.0 * path.success_probability) < 1e-9, "risk != impact * P"
+            entry = Gl.edges["I", "P"]
+            assert entry["exploit_evidence"] == "cisa-kev", "Target workload's KEV CVE should be used"
+            # Same graph without the CVE: entry edge must get harder
+            cluster.nodes[1].cves = []
+            G0 = build_attack_graph(cluster, weight_mode="learned")
+            assert G0.edges["I", "P"]["p_success"] < entry["p_success"]
+            result.ok(f"Learned graph: P(path) = Π P(hop) = {path.success_probability:.3f}, risk = impact × P")
+        except (AssertionError, ValueError, KeyError) as e:
+            result.fail("Learned graph end-to-end", str(e))
+
+        # Test 20: CVE predictor evidence order
+        try:
+            from .ml.cve_model import CVEExploitPredictor, KEV_PROBABILITY
+            pred = CVEExploitPredictor(allow_network=False)
+            p_kev, src_kev = pred.predict("CVE-2023-44487", 7.5)
+            assert src_kev == "cisa-kev" and p_kev == KEV_PROBABILITY
+            p_none, src_none = pred.predict(None, None)
+            assert src_none == "model:no-data" and 0 < p_none < 0.05
+            p_hi, _ = pred.predict("CVE-0000-00000", 9.8)
+            p_lo, _ = pred.predict("CVE-0000-00001", 2.0)
+            assert 0 < p_lo < 1 and 0 < p_hi < 1
+            assert p_hi >= p_lo, "Higher CVSS should not lower exploit probability (score-only)"
+            result.ok(f"CVE model: KEV={p_kev}, no-data={p_none:.4f}, CVSS 9.8 vs 2.0 = {p_hi:.4f} vs {p_lo:.4f}")
+        except (AssertionError, ValueError, KeyError) as e:
+            result.fail("CVE exploit predictor", str(e))
 
     return result
 

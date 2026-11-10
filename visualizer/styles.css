@@ -342,9 +342,12 @@ code {
 }
 
 .rail-label {
-    font-size: 0.58rem;
+    font-size: 0.54rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.02em;
+    max-width: calc(var(--rail-w) - 6px);
+    white-space: nowrap;
+    overflow: hidden;
     color: var(--text-3);
     font-weight: 700;
     margin-bottom: 2px;

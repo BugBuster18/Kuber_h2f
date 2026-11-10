@@ -37,6 +37,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-load-timeline')?.addEventListener('click', async () => {
         try {
             const possibleBasePaths = ['snapshots', '../.temporal_snapshots', '.temporal_snapshots'];
+
+            // Prefer a CLI-exported diff history: it uses the same weights as
+            // the CLI (including learned ML weights). Create it with:
+            //   python main.py -w learned temporal-history --diff-all -o visualizer/snapshots/diff_history.json
+            for (const base of possibleBasePaths) {
+                try {
+                    const resp = await fetch(`${base}/diff_history.json`, { cache: 'no-store' });
+                    if (resp.ok) {
+                        const history = await resp.json();
+                        if (Array.isArray(history) && history.length > 0) {
+                            renderDiffHistory(history);
+                            return;
+                        }
+                    }
+                } catch (_) {}
+            }
+
             let index = null;
             let chosenBase = '';
 
@@ -97,18 +114,24 @@ function populateDashboard(data) {
     const medCount  = paths.filter(p => p.severity === 'MEDIUM').length;
     const lowCount  = paths.filter(p => p.severity === 'LOW').length;
 
-    // Score: 100 = no paths, each CRITICAL = -20, HIGH = -12, MED = -5, LOW = -2
-    let score = 100 - critCount * 20 - highCount * 12 - medCount * 5 - lowCount * 2;
-    score = Math.max(0, Math.min(100, score));
+    // Score: set by the WORST path's severity, then a small capped penalty
+    // for how many serious paths exist. Severity bands already account for
+    // the weight mode (static vs learned), so the score means the same in both.
+    const worstBase = critCount > 0 ? 30 : highCount > 0 ? 55 : medCount > 0 ? 75 : lowCount > 0 ? 90 : 100;
+    const breadthPenalty = Math.min(15, critCount * 3 + highCount * 2 + medCount);
+    const score = Math.max(0, Math.min(100, worstBase - breadthPenalty));
 
     const ring = document.getElementById('ring-fg');
     const circumference = 2 * Math.PI * 52; // r=52
     ring.style.strokeDasharray = circumference;
     ring.style.strokeDashoffset = circumference - (score / 100) * circumference;
-    ring.style.stroke = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--orange)' : 'var(--red)';
+    ring.style.stroke = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--orange)' : 'var(--red)';
     document.getElementById('posture-score').textContent = score;
     const label = score >= 80 ? 'Acceptable' : score >= 50 ? 'Needs Attention' : 'Critical Risk';
     document.getElementById('posture-label').textContent = label;
+    document.getElementById('pc-score').title =
+        'Worst path severity sets the base (CRITICAL 30, HIGH 55, MEDIUM 75, LOW 90, none 100), ' +
+        'minus up to 15 for the number of serious paths.';
 
     // ── Path stats ──────────────────────────────────────────────
     document.getElementById('stat-total-paths').textContent = paths.length;
@@ -198,6 +221,7 @@ function populateDashboard(data) {
                 <td class="td-mono">${p.hop_count}</td>
                 <td class="td-mono">${p.total_risk.toFixed(2)}</td>
                 <td class="td-mono">${p.advanced_score ?? '—'}</td>
+                <td class="td-mono">${typeof p.success_probability === 'number' ? (p.success_probability * 100).toFixed(1) + '%' : '—'}</td>
                 <td>${cats}</td>
                 <td class="td-mono" style="font-size:.68rem">${cveStr}</td>
                 <td>
@@ -213,7 +237,7 @@ function populateDashboard(data) {
             <table class="data-table">
                 <thead><tr>
                     <th>#</th><th>Severity</th><th>Path</th><th>Hops</th>
-                    <th>Risk</th><th>Score</th><th>Category</th><th>CVEs</th><th>Action</th>
+                    <th>Risk</th><th>Score</th><th>P(success)</th><th>Category</th><th>CVEs</th><th>Action</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
             </table>`;
@@ -286,6 +310,8 @@ function handleTimelineFiles(files) {
 }
 
 function renderTimeline(snapshots) {
+    setTimelineSourceNote('Diffs computed in the browser · static weights '
+        + '(export with --weights learned temporal-history --diff-all for ML weights)');
     loadedSnapshots = snapshots.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     const track = document.getElementById('timeline-track');
 
@@ -324,7 +350,21 @@ function renderTimeline(snapshots) {
     track.innerHTML = html;
 }
 
+function setTimelineSourceNote(text) {
+    let note = document.getElementById('tl-source-note');
+    if (!note) {
+        note = document.createElement('p');
+        note.id = 'tl-source-note';
+        note.className = 'tl-subtitle';
+        note.style.marginTop = '4px';
+        document.querySelector('.tl-title-group')?.appendChild(note);
+    }
+    note.textContent = text;
+}
+
 function renderDiffHistory(diffs) {
+    const mode = diffs.find(d => d.weight_mode)?.weight_mode || 'static';
+    setTimelineSourceNote(`Diffs from CLI export · ${mode === 'learned' ? 'ML (learned) weights' : 'static weights'}`);
     const track = document.getElementById('timeline-track');
     if (diffs.length === 0) {
         track.innerHTML = '<div class="tl-empty-state"><p>No diffs in this history.</p></div>';
@@ -351,7 +391,7 @@ function renderDiffHistory(diffs) {
                     <div class="tl-card-stats">
                         <div class="tl-stat"><span class="tl-stat-dot" style="background:var(--green)"></span>+${summary.new_nodes_count || 0} nodes</div>
                         <div class="tl-stat"><span class="tl-stat-dot" style="background:var(--red)"></span>-${summary.removed_nodes_count || 0} nodes</div>
-                        <div class="tl-stat"><span class="tl-stat-dot" style="background:var(--orange)"></span>${summary.new_attack_paths_count || 0} new paths</div>
+                        <div class="tl-stat"><span class="tl-stat-dot" style="background:var(--orange)"></span>${summary.new_attack_paths_count || 0} new / ${summary.escalated_attack_paths_count || 0} easier paths</div>
                         ${alertCount > 0 ? `<div class="tl-stat" style="color:var(--red)">🚨 ${alertCount} alert${alertCount>1?'s':''}</div>` : ''}
                     </div>
                 </div>
@@ -393,63 +433,36 @@ function showSnapshotDiff(index) {
 }
 
 // ── Helper: Compute attack paths for a snapshot client-side ───
+// Uses the same analysis as the Graph view / Python CLI (script.js), giving
+// the easiest path per (source, sink) pair.
 function computeSnapshotPaths(clusterData) {
     if (!clusterData || !Array.isArray(clusterData.nodes) || !Array.isArray(clusterData.edges)) return [];
-    
-    const nodes = clusterData.nodes;
-    const edges = clusterData.edges;
-    const nodeMap = new Map();
-    nodes.forEach(n => nodeMap.set(n.id, n));
+    if (typeof analyzeCluster !== 'function') return [];
+    return analyzeCluster(clusterData, { critical: false }).attack_paths.map(p => ({
+        key: `${p.path_nodes[0]}=>${p.path_nodes[p.path_nodes.length - 1]}`,
+        route: p.path_nodes.join('->'),
+        nodeIds: p.path_nodes,
+        nodeNames: p.path_names,
+        totalRisk: p.total_risk,
+        severity: p.severity,
+        hops: p.hop_count,
+    }));
+}
 
-    const isSourceNode = n => n.is_source === true || ['externalactor', 'ingress', 'external-internet'].includes((n.type || '').toLowerCase());
-    const isSinkNode = n => n.is_sink === true || ['secret', 'database'].includes((n.type || '').toLowerCase());
+const K8S_NAMESPACED_KINDS = new Set(['pod', 'service', 'serviceaccount', 'role', 'rolebinding', 'secret', 'configmap', 'deployment', 'ingress']);
+const K8S_CLUSTER_KINDS = new Set(['clusterrole', 'clusterrolebinding', 'node', 'namespace', 'persistentvolume']);
 
-    const sources = nodes.filter(isSourceNode);
-    const sinks = new Set(nodes.filter(isSinkNode).map(n => n.id));
-
-    const adj = new Map();
-    edges.forEach(e => {
-        if (!adj.has(e.source)) adj.set(e.source, []);
-        adj.get(e.source).push({ target: e.target, rel: e.relationship, weight: Number(e.weight) || 1.0 });
-    });
-
-    const paths = [];
-    const maxDepth = 8;
-
-    function dfs(currentId, targetId, visited, currentPath, totalWeight) {
-        if (currentPath.length > maxDepth) return;
-        if (currentId === targetId) {
-            paths.push({
-                key: currentPath.join('->'),
-                nodeIds: [...currentPath],
-                nodeNames: currentPath.map(id => nodeMap.get(id)?.name || id),
-                totalRisk: totalWeight,
-                hops: currentPath.length - 1
-            });
-            return;
-        }
-
-        const neighbors = adj.get(currentId) || [];
-        for (const edge of neighbors) {
-            if (!visited.has(edge.target)) {
-                visited.add(edge.target);
-                currentPath.push(edge.target);
-                dfs(edge.target, targetId, visited, currentPath, totalWeight + edge.weight);
-                currentPath.pop();
-                visited.delete(edge.target);
-            }
-        }
+/** A safe, targeted review command for a node (never a bulk/grep delete). */
+function reviewCommandFor(node) {
+    if (!node) return null;
+    const kind = (node.type || '').toLowerCase();
+    if (K8S_NAMESPACED_KINDS.has(kind) && node.namespace) {
+        return `kubectl describe ${kind} ${node.name} -n ${node.namespace}   # review; remove only if unintended`;
     }
-
-    for (const src of sources) {
-        for (const sinkId of sinks) {
-            if (src.id === sinkId) continue;
-            const visited = new Set([src.id]);
-            dfs(src.id, sinkId, visited, [src.id], 0);
-        }
+    if (K8S_CLUSTER_KINDS.has(kind)) {
+        return `kubectl describe ${kind} ${node.name}   # review; remove only if unintended`;
     }
-
-    return paths;
+    return null;
 }
 
 function showClientDiff(oldSnap, newSnap) {
@@ -469,29 +482,34 @@ function showClientDiff(oldSnap, newSnap) {
     const removedEdges = [...oldEdges].filter(k => !newEdges.has(k));
 
     const nodeNameMap = {};
-    (newSnap.cluster_data?.nodes || []).forEach(n => nodeNameMap[n.id] = n.name);
-    (oldSnap.cluster_data?.nodes || []).forEach(n => { if (!nodeNameMap[n.id]) nodeNameMap[n.id] = n.name; });
+    const nodeById = {};
+    (oldSnap.cluster_data?.nodes || []).forEach(n => { nodeNameMap[n.id] = n.name; nodeById[n.id] = n; });
+    (newSnap.cluster_data?.nodes || []).forEach(n => { nodeNameMap[n.id] = n.name; nodeById[n.id] = n; });
 
-    // Compute attack paths & causal impact
-    const oldPaths = computeSnapshotPaths(oldSnap.cluster_data);
-    const newPaths = computeSnapshotPaths(newSnap.cluster_data);
+    // Reachability diff per (source, sink) pair — mirrors temporal.diff_clusters()
+    const oldPaths = new Map(computeSnapshotPaths(oldSnap.cluster_data).map(p => [p.key, p]));
+    const newPaths = new Map(computeSnapshotPaths(newSnap.cluster_data).map(p => [p.key, p]));
 
-    const oldPathKeySet = new Set(oldPaths.map(p => p.key));
-    const newPathKeySet = new Set(newPaths.map(p => p.key));
-
-    const introducedPaths = newPaths.filter(p => !oldPathKeySet.has(p.key));
-    const eliminatedPaths = oldPaths.filter(p => !newPathKeySet.has(p.key));
+    const introducedPaths = [...newPaths.values()].filter(p => !oldPaths.has(p.key));
+    const eliminatedPaths = [...oldPaths.values()].filter(p => !newPaths.has(p.key));
+    const changedPaths = [...newPaths.values()]
+        .filter(p => oldPaths.has(p.key) && oldPaths.get(p.key).route !== p.route)
+        .map(p => ({ old: oldPaths.get(p.key), new: p, escalated: p.totalRisk > oldPaths.get(p.key).totalRisk + 1e-9 }));
+    const escalatedPaths = changedPaths.filter(c => c.escalated);
 
     // Causal Attribution: What changed because of what?
     const addedNodeIdSet = new Set(addedNodes);
-    const causalAttributions = introducedPaths.map(p => {
+    const addedPairSet = new Set(addedEdges.map(k => k.split('|').slice(0, 2).join('|')));
+    const attributable = [
+        ...introducedPaths.map(p => ({ p, old: null })),
+        ...escalatedPaths.map(c => ({ p: c.new, old: c.old })),
+    ];
+    const causalAttributions = attributable.map(({ p, old }) => {
         const enablingNodes = p.nodeIds.filter(id => addedNodeIdSet.has(id));
         const enablingEdges = [];
         for (let i = 0; i < p.nodeIds.length - 1; i++) {
-            const hopKey = `${p.nodeIds[i]}|${p.nodeIds[i+1]}`;
-            const matchedEdge = addedEdges.find(e => e.startsWith(hopKey));
-            if (matchedEdge) {
-                enablingEdges.push(`${nodeNameMap[p.nodeIds[i]] || p.nodeIds[i]} ──▸ ${nodeNameMap[p.nodeIds[i+1]] || p.nodeIds[i+1]}`);
+            if (addedPairSet.has(`${p.nodeIds[i]}|${p.nodeIds[i + 1]}`)) {
+                enablingEdges.push(`${nodeNameMap[p.nodeIds[i]] || p.nodeIds[i]} ──▸ ${nodeNameMap[p.nodeIds[i + 1]] || p.nodeIds[i + 1]}`);
             }
         }
 
@@ -499,20 +517,22 @@ function showClientDiff(oldSnap, newSnap) {
         const reasons = [];
         if (nodeNames.length > 0) reasons.push(`deploying resource(s): <strong>${nodeNames.join(', ')}</strong>`);
         if (enablingEdges.length > 0) reasons.push(`establishing privilege link(s): <strong>${enablingEdges.join(', ')}</strong>`);
+        const cause = reasons.length > 0 ? reasons.join(' and ') : 'topology modifications';
+        const sinkName = p.nodeNames[p.nodeNames.length - 1];
 
-        const narrative = reasons.length > 0
-            ? `New breach route established directly because of ${reasons.join(' and ')}. This exposes sink <strong>${p.nodeNames[p.nodeNames.length - 1]}</strong> from external ingress.`
-            : `Reachability shifted due to topology modifications, opening a ${p.hops}-hop attack route.`;
+        const narrative = old
+            ? `<strong>${sinkName}</strong> was already reachable, but became easier to reach because of ${cause}: risk ${old.totalRisk.toFixed(2)} → ${p.totalRisk.toFixed(2)}/10 (${old.severity} → ${p.severity}), ${old.hops} → ${p.hops} hops.`
+            : `New breach route established because of ${cause}. This exposes sink <strong>${sinkName}</strong> from <strong>${p.nodeNames[0]}</strong>.`;
 
-        const badNode = enablingNodes[0];
-        const remediation = badNode
-            ? `kubectl delete $(kubectl get all -A -o name | grep ${nodeNameMap[badNode] || badNode})`
-            : `Review network policies separating ${p.nodeNames[0]} and ${p.nodeNames[p.nodeNames.length - 1]}`;
+        const remediation = reviewCommandFor(nodeById[enablingNodes[0]])
+            || `Review network policies and RBAC separating ${p.nodeNames[0]} and ${sinkName}`;
 
         return {
+            badge: old ? '⚠ Escalated Attack Path' : '⚡ Introduced Attack Path',
             pathStr: p.nodeNames.join(' → '),
             hops: p.hops,
             risk: p.totalRisk.toFixed(2),
+            severity: p.severity,
             narrative,
             enablingNodes: nodeNames,
             enablingEdges,
@@ -530,8 +550,8 @@ function showClientDiff(oldSnap, newSnap) {
                     ${causalAttributions.map(c => `
                         <div class="diff-causal-card">
                             <div class="diff-causal-header">
-                                <span class="diff-causal-badge">⚡ Introduced Attack Path</span>
-                                <span style="font-size:.74rem;color:var(--text-3);font-family:'JetBrains Mono'">${c.hops} hops • Risk: ${c.risk}</span>
+                                <span class="diff-causal-badge">${c.badge}</span>
+                                <span style="font-size:.74rem;color:var(--text-3);font-family:'JetBrains Mono'"><span class="sev sev-${c.severity}">${c.severity}</span> ${c.hops} hops • Risk: ${c.risk}/10</span>
                             </div>
                             <div class="diff-causal-route">${c.pathStr}</div>
                             <div class="diff-causal-narrative">${c.narrative}</div>
@@ -557,7 +577,7 @@ function showClientDiff(oldSnap, newSnap) {
                     <div class="diff-causal-header">
                         <span class="diff-causal-badge safe">✓ No Security Regression</span>
                     </div>
-                    <div class="diff-causal-narrative">No new source-to-sink attack paths were introduced by these topology changes. Cluster privilege boundaries remain intact.</div>
+                    <div class="diff-causal-narrative">No new or easier source-to-sink attack paths were introduced by these topology changes. Cluster privilege boundaries remain intact.</div>
                 </div>
             </div>`;
     }
@@ -565,10 +585,11 @@ function showClientDiff(oldSnap, newSnap) {
     body.innerHTML = `
         ${causalHtml}
         <div class="diff-section">
-            <div class="diff-section-title">Attack Path Traversal Delta (+${introducedPaths.length} / -${eliminatedPaths.length})</div>
-            ${introducedPaths.map(p => `<div class="diff-item added">⚡ ${p.nodeNames.join(' → ')} (${p.hops} hops)</div>`).join('')}
-            ${eliminatedPaths.map(p => `<div class="diff-item removed">✓ ${p.nodeNames.join(' → ')} (eliminated)</div>`).join('')}
-            ${introducedPaths.length === 0 && eliminatedPaths.length === 0 ? '<div class="diff-item">No attack path changes.</div>' : ''}
+            <div class="diff-section-title">Attack Path Delta (+${introducedPaths.length} new / ${changedPaths.length} changed / -${eliminatedPaths.length} eliminated)</div>
+            ${introducedPaths.map(p => `<div class="diff-item added">⚡ ${p.nodeNames.join(' → ')} — <span class="sev sev-${p.severity}">${p.severity}</span> (${p.hops} hops)</div>`).join('')}
+            ${changedPaths.map(c => `<div class="diff-item ${c.escalated ? 'added' : ''}">${c.escalated ? '▲ Easier' : '▼ Rerouted'}: ${c.new.nodeNames[0]} → ${c.new.nodeNames[c.new.nodeNames.length - 1]} — risk ${c.old.totalRisk.toFixed(2)} → ${c.new.totalRisk.toFixed(2)} (<span class="sev sev-${c.new.severity}">${c.new.severity}</span>), now via ${c.new.nodeNames.join(' → ')}</div>`).join('')}
+            ${eliminatedPaths.map(p => `<div class="diff-item removed">✓ ${p.nodeNames.join(' → ')} (no longer reachable)</div>`).join('')}
+            ${introducedPaths.length === 0 && eliminatedPaths.length === 0 && changedPaths.length === 0 ? '<div class="diff-item">No attack path changes.</div>' : ''}
         </div>
         <div class="diff-section">
             <div class="diff-section-title">Nodes (+${addedNodes.length} / -${removedNodes.length})</div>
@@ -622,6 +643,7 @@ function showDiffDetail(index) {
     const re = diff.removed_edges || [];
     const np = diff.new_attack_paths || [];
     const rp = diff.removed_attack_paths || [];
+    const cp = diff.changed_attack_paths || [];
     const attributions = diff.attributions || [];
 
     let causalHtml = '';
@@ -657,6 +679,11 @@ function showDiffDetail(index) {
             <div class="diff-section-title">New Attack Paths (${np.length})</div>
             ${np.map(p => `<div class="diff-item added">⚡ ${(p.path_names || []).join(' → ')} — <span class="sev sev-${p.severity}">${p.severity}</span> risk: ${(p.total_risk || 0).toFixed(2)}</div>`).join('')}
             ${np.length === 0 ? '<div class="diff-item">None.</div>' : ''}
+        </div>
+        <div class="diff-section">
+            <div class="diff-section-title">Changed Routes (${cp.length})</div>
+            ${cp.map(c => `<div class="diff-item ${c.escalated ? 'added' : ''}">${c.escalated ? '▲ Easier' : '▼ Rerouted'}: ${(c.new.path_names || []).join(' → ')} — risk ${(c.old.total_risk || 0).toFixed(2)} → ${(c.new.total_risk || 0).toFixed(2)} <span class="sev sev-${c.new.severity}">${c.new.severity}</span></div>`).join('')}
+            ${cp.length === 0 ? '<div class="diff-item">None.</div>' : ''}
         </div>
         <div class="diff-section">
             <div class="diff-section-title">Eliminated Paths (${rp.length})</div>

@@ -73,3 +73,6 @@ visualizer/graph-data.json
 *.swp
 *.swo
 .DS_Store
+
+# ML datasets (reproducible: python main.py ml-fetch-data && python main.py ml-train)
+data/

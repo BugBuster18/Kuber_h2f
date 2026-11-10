@@ -1,0 +1,287 @@
+[
+  {
+    "diff_id": "6b47799b8f92592a",
+    "old_snapshot_id": "fe4d7b98a7bf7305625e94be",
+    "new_snapshot_id": "373928f4f68484444323f4f2",
+    "timestamp": "2026-11-10T09:32:23.355190+00:00",
+    "weight_mode": "learned",
+    "has_changes": true,
+    "new_nodes": [
+      {
+        "id": "crb-cluster-admin",
+        "name": "debug-cluster-admin-binding",
+        "type": "clusterrolebinding"
+      },
+      {
+        "id": "pod-debug",
+        "name": "dev-debug-pod",
+        "type": "pod"
+      }
+    ],
+    "removed_nodes": [],
+    "new_edges": [
+      {
+        "source": "crb-cluster-admin",
+        "target": "db-payment-core",
+        "relationship": "direct_root_access"
+      },
+      {
+        "source": "external-internet",
+        "target": "pod-debug",
+        "relationship": "exposed_nodeport"
+      },
+      {
+        "source": "pod-debug",
+        "target": "crb-cluster-admin",
+        "relationship": "bound_to"
+      }
+    ],
+    "removed_edges": [],
+    "new_attack_paths": [],
+    "removed_attack_paths": [],
+    "changed_attack_paths": [
+      {
+        "old": {
+          "path_nodes": [
+            "external-internet",
+            "public-ingress",
+            "pod-frontend",
+            "sa-frontend",
+            "pod-auth",
+            "sa-auth-operator",
+            "rolebinding-vault",
+            "role-vault-reader",
+            "secret-payment-keys",
+            "db-payment-core"
+          ],
+          "path_names": [
+            "internet",
+            "public-ingress",
+            "web-frontend",
+            "storefront-sa",
+            "auth-service",
+            "auth-operator-sa",
+            "vault-access-binding",
+            "vault-secrets-reader",
+            "payment-api-keys",
+            "prod-payment-db"
+          ],
+          "relationships": [
+            "exposes",
+            "routes_to",
+            "runs_as",
+            "connects_to",
+            "authenticates_as",
+            "binds_to",
+            "grants",
+            "reads",
+            "grants_access"
+          ],
+          "cves": [
+            null,
+            null,
+            "CVE-2023-44487",
+            null,
+            "CVE-2024-21626",
+            null,
+            null,
+            null,
+            null
+          ],
+          "cvss_scores": [
+            null,
+            null,
+            8.5,
+            null,
+            9.8,
+            null,
+            null,
+            null,
+            null
+          ],
+          "hop_count": 9,
+          "total_risk": 0.733324414916106,
+          "total_cost": 2.612752182849874,
+          "severity": "MEDIUM",
+          "success_probability": 0.0733324414916106
+        },
+        "new": {
+          "path_nodes": [
+            "external-internet",
+            "pod-debug",
+            "crb-cluster-admin",
+            "db-payment-core"
+          ],
+          "path_names": [
+            "internet",
+            "dev-debug-pod",
+            "debug-cluster-admin-binding",
+            "prod-payment-db"
+          ],
+          "relationships": [
+            "exposed_nodeport",
+            "bound_to",
+            "direct_root_access"
+          ],
+          "cves": [
+            "CVE-2024-21626",
+            null,
+            null
+          ],
+          "cvss_scores": [
+            9.8,
+            null,
+            null
+          ],
+          "hop_count": 3,
+          "total_risk": 0.9392620580000005,
+          "total_cost": 2.3652458497019273,
+          "severity": "MEDIUM",
+          "success_probability": 0.09392620580000005
+        },
+        "risk_delta": 0.2059,
+        "escalated": true
+      }
+    ],
+    "attributions": [
+      {
+        "kind": "escalated",
+        "path": "internet \u2192 dev-debug-pod \u2192 debug-cluster-admin-binding \u2192 prod-payment-db",
+        "severity": "MEDIUM",
+        "risk": 0.9392620580000005,
+        "enabling_nodes": [
+          "dev-debug-pod",
+          "debug-cluster-admin-binding"
+        ],
+        "enabling_edges": [
+          "internet \u2500\u2500\u25b8 dev-debug-pod",
+          "dev-debug-pod \u2500\u2500\u25b8 debug-cluster-admin-binding",
+          "debug-cluster-admin-binding \u2500\u2500\u25b8 prod-payment-db"
+        ],
+        "narrative": "'prod-payment-db' became easier to reach from 'internet' (risk 0.73 \u2192 0.94/10, 9 \u2192 3 hops, now MEDIUM) via 'internet \u2192 dev-debug-pod \u2192 debug-cluster-admin-binding \u2192 prod-payment-db'. Caused by: Adding resource(s): dev-debug-pod, debug-cluster-admin-binding; Establishing link(s): internet \u2500\u2500\u25b8 dev-debug-pod, dev-debug-pod \u2500\u2500\u25b8 debug-cluster-admin-binding, debug-cluster-admin-binding \u2500\u2500\u25b8 prod-payment-db."
+      }
+    ],
+    "alerts": [
+      {
+        "alert_id": "ALERT-6b47799b-001",
+        "severity": "HIGH",
+        "category": "ATTACK_PATH_ESCALATED",
+        "title": "Easier route to prod-payment-db: internet \u2192 dev-debug-pod \u2192 debug-cluster-admin-binding \u2192 prod-payment-db",
+        "description": "'prod-payment-db' was already reachable from 'internet', but the easiest route changed: risk 0.73 \u2192 0.94/10 (MEDIUM \u2192 MEDIUM), hops 9 \u2192 3. New route: internet \u2192 dev-debug-pod \u2192 debug-cluster-admin-binding \u2192 prod-payment-db.",
+        "timestamp": "2026-11-10T09:32:23.356906+00:00",
+        "diff_ref": "6b47799b8f92592a",
+        "details": {
+          "old": {
+            "path_nodes": [
+              "external-internet",
+              "public-ingress",
+              "pod-frontend",
+              "sa-frontend",
+              "pod-auth",
+              "sa-auth-operator",
+              "rolebinding-vault",
+              "role-vault-reader",
+              "secret-payment-keys",
+              "db-payment-core"
+            ],
+            "path_names": [
+              "internet",
+              "public-ingress",
+              "web-frontend",
+              "storefront-sa",
+              "auth-service",
+              "auth-operator-sa",
+              "vault-access-binding",
+              "vault-secrets-reader",
+              "payment-api-keys",
+              "prod-payment-db"
+            ],
+            "relationships": [
+              "exposes",
+              "routes_to",
+              "runs_as",
+              "connects_to",
+              "authenticates_as",
+              "binds_to",
+              "grants",
+              "reads",
+              "grants_access"
+            ],
+            "cves": [
+              null,
+              null,
+              "CVE-2023-44487",
+              null,
+              "CVE-2024-21626",
+              null,
+              null,
+              null,
+              null
+            ],
+            "cvss_scores": [
+              null,
+              null,
+              8.5,
+              null,
+              9.8,
+              null,
+              null,
+              null,
+              null
+            ],
+            "hop_count": 9,
+            "total_risk": 0.733324414916106,
+            "total_cost": 2.612752182849874,
+            "severity": "MEDIUM",
+            "success_probability": 0.0733324414916106
+          },
+          "new": {
+            "path_nodes": [
+              "external-internet",
+              "pod-debug",
+              "crb-cluster-admin",
+              "db-payment-core"
+            ],
+            "path_names": [
+              "internet",
+              "dev-debug-pod",
+              "debug-cluster-admin-binding",
+              "prod-payment-db"
+            ],
+            "relationships": [
+              "exposed_nodeport",
+              "bound_to",
+              "direct_root_access"
+            ],
+            "cves": [
+              "CVE-2024-21626",
+              null,
+              null
+            ],
+            "cvss_scores": [
+              9.8,
+              null,
+              null
+            ],
+            "hop_count": 3,
+            "total_risk": 0.9392620580000005,
+            "total_cost": 2.3652458497019273,
+            "severity": "MEDIUM",
+            "success_probability": 0.09392620580000005
+          }
+        }
+      }
+    ],
+    "summary": {
+      "new_nodes_count": 2,
+      "removed_nodes_count": 0,
+      "new_edges_count": 3,
+      "removed_edges_count": 0,
+      "new_attack_paths_count": 0,
+      "removed_attack_paths_count": 0,
+      "changed_attack_paths_count": 1,
+      "escalated_attack_paths_count": 1,
+      "alert_count": 1
+    }
+  }
+]

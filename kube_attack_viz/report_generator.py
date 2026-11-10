@@ -84,7 +84,7 @@ def generate_full_report(
     """Generate the complete Kill Chain Report.
 
     Includes all five sections:
-      1. Attack Paths (sorted by risk ascending)
+      1. Attack Paths (most dangerous first)
       2. Blast Radius
       3. Cycle Detection
       4. Critical Node Analysis
@@ -190,8 +190,8 @@ def generate_full_report(
             sections.append("=" * 70)
             sections.append("  NATURAL LANGUAGE PATH EXPLANATION (Highest-Risk Path)")
             sections.append("=" * 70)
-            # Explain the highest risk path (last in ascending sort)
-            sections.append(explain_path(G, paths[-1]))
+            # Explain the highest risk path (paths are sorted most dangerous first)
+            sections.append(explain_path(G, paths[0]))
             sections.append("")
             sections.append(explain_critical_node(G, critical_result))
             sections.append("=" * 70)

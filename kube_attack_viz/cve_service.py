@@ -83,6 +83,35 @@ class CVEEnricher:
             console.print(f"[dim yellow]Warning: Could not enrich {cve_id} via NVD: {e}[/]")
             return None
 
+    def get_nvd_record(self, cve_id: str) -> Optional[dict]:
+        """Fetch a CVE's NVD record (trimmed to the fields the ML model uses).
+
+        Cached under 'REC:<id>'. Returns None if offline or not found.
+        """
+        if not cve_id or not cve_id.startswith("CVE-"):
+            return None
+        key = f"REC:{cve_id}"
+        if key in self.cache:
+            return self.cache[key] or None
+        try:
+            headers = {"apiKey": self.api_key} if self.api_key else {}
+            if not self.api_key:
+                time.sleep(1.0)
+            response = requests.get(self.api_url, params={"cveId": cve_id}, headers=headers, timeout=10)
+            if response.status_code != 200:
+                return None
+            vulns = response.json().get("vulnerabilities", [])
+            cve = vulns[0].get("cve", {}) if vulns else {}
+            keep = ("id", "published", "descriptions", "metrics", "weaknesses",
+                    "references", "affected", "configurations")
+            record = {k: cve[k] for k in keep if k in cve}
+            self.cache[key] = record  # {} = "looked up, not found"
+            self._save_cache()
+            return record or None
+        except Exception as e:
+            console.print(f"[dim yellow]Warning: Could not fetch NVD record for {cve_id}: {e}[/]")
+            return None
+
     def discover_cves_for_image(self, image_str: str) -> list[Dict]:
         """Search NVD API for CVEs associated with an image/version string.
         

@@ -11,8 +11,25 @@ import networkx as nx
 
 from .models import ClusterGraph, NodeData, EdgeData
 
+WEIGHT_MODES = ("static", "learned")
 
-def build_attack_graph(cluster: ClusterGraph, use_cvss_weights: bool = True) -> nx.DiGraph:
+# Set once by the CLI (--weights) so every graph built in the run — reports,
+# temporal diffs, exports — uses the same weighting.
+DEFAULT_WEIGHT_MODE = "static"
+
+
+def set_default_weight_mode(mode: str) -> None:
+    global DEFAULT_WEIGHT_MODE
+    if mode not in WEIGHT_MODES:
+        raise ValueError(f"Unknown weight mode '{mode}'. Use one of {WEIGHT_MODES}.")
+    DEFAULT_WEIGHT_MODE = mode
+
+
+def build_attack_graph(
+    cluster: ClusterGraph,
+    use_cvss_weights: bool = True,
+    weight_mode: str | None = None,
+) -> nx.DiGraph:
     """Construct a NetworkX directed graph from parsed cluster data.
 
     Ensures:
@@ -23,12 +40,25 @@ def build_attack_graph(cluster: ClusterGraph, use_cvss_weights: bool = True) -> 
 
     Args:
         cluster: Parsed ClusterGraph containing nodes and edges.
-        use_cvss_weights: Whether to reduce edge weights based on CVSS scores.
+        use_cvss_weights: Whether to reduce edge weights based on CVSS scores
+            (static mode only — the learned model already accounts for CVEs).
+        weight_mode: "static" (hand-tuned weights from the input file) or
+            "learned" (weight = -ln P(success) from the ML models).
+            Defaults to DEFAULT_WEIGHT_MODE.
 
     Returns:
         NetworkX DiGraph ready for algorithmic analysis.
     """
-    G = nx.DiGraph()
+    mode = weight_mode or DEFAULT_WEIGHT_MODE
+    if mode not in WEIGHT_MODES:
+        raise ValueError(f"Unknown weight mode '{mode}'. Use one of {WEIGHT_MODES}.")
+    G = nx.DiGraph(weight_mode=mode)
+
+    learned = None
+    if mode == "learned":
+        from .ml.weights import get_learned_weights
+        learned = get_learned_weights()
+    node_by_id = {n.id: n for n in cluster.nodes}
 
     # ── Add nodes ────────────────────────────────────────────────────────────
     node_ids: set[str] = set()
@@ -68,7 +98,22 @@ def build_attack_graph(cluster: ClusterGraph, use_cvss_weights: bool = True) -> 
         base_cost = float(edge.weight)
         effective_cost = base_cost
 
-        if use_cvss_weights and edge.cvss is not None:
+        extra: dict = {}
+        if learned is not None:
+            src, tgt = node_by_id[edge.source], node_by_id[edge.target]
+            scored = learned.score_edge(
+                src.type, edge.relationship, tgt.type,
+                edge_cve=edge.cve, edge_cvss=edge.cvss, target_cves=tgt.cves,
+            )
+            effective_cost = scored["weight"]
+            extra = {
+                "p_success": scored["p_success"],
+                "category": scored["category"],
+                "p_exploit": scored["p_exploit"],
+                "exploit_cve": scored["exploit_cve"],
+                "exploit_evidence": scored["exploit_evidence"],
+            }
+        elif use_cvss_weights and edge.cvss is not None:
             # Formula: weight reduced by CVSS percentage.
             reduction = edge.cvss / 10.0
             effective_cost = max(0.1, base_cost * (1.0 - reduction))
@@ -81,6 +126,7 @@ def build_attack_graph(cluster: ClusterGraph, use_cvss_weights: bool = True) -> 
             base_cost=base_cost,  # preserved for auditing
             cve=edge.cve,
             cvss=edge.cvss,
+            **extra,
         )
 
     if skipped_edges > 0:

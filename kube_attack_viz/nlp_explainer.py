@@ -44,6 +44,12 @@ _TYPE_ARTICLES: dict[str, str] = {
     "database": "the database",
     "node": "the cluster node",
     "ingress": "the ingress",
+    "externalactor": "the external actor",
+    "user": "the user",
+    "group": "the group",
+    "namespace": "the namespace",
+    "persistentvolume": "the PersistentVolume",
+    "deployment": "the Deployment",
 }
 
 
@@ -87,7 +93,7 @@ def explain_path(G: nx.DiGraph, path: AttackPath) -> str:
         tgt_type = _get_type(G, path.path_nodes[i + 1])
         verb = _REL_VERBS.get(rel, f"has a '{rel}' relationship with")
 
-        step = f"  Step {i + 1}: {_article(src_type).capitalize()} '{src_name}' {verb} {_article(tgt_type)} '{tgt_name}'."
+        step = f"  Step {i + 1}: {_capitalize_first(_article(src_type))} '{src_name}' {verb} {_article(tgt_type)} '{tgt_name}'."
 
         # Add CVE context
         if path.cves[i]:
@@ -99,7 +105,7 @@ def explain_path(G: nx.DiGraph, path: AttackPath) -> str:
     # Closing
     lines.append("")
     lines.append(
-        f"Total risk score: {path.total_risk:.2f}. "
+        f"Risk score: {path.total_risk:.2f}/10 (traversal cost {path.total_cost:.2f}). "
         f"An attacker traversing this path gains access to "
         f"{_article(last_type)} '{last_name}', "
         f"which is flagged as a high-value target."
@@ -151,6 +157,12 @@ def explain_critical_node(G: nx.DiGraph, result: CriticalNodeResult) -> str:
 def _article(node_type: str) -> str:
     """Get the descriptive article for a node type."""
     return _TYPE_ARTICLES.get(node_type, f"the {node_type}")
+
+
+def _capitalize_first(text: str) -> str:
+    """Uppercase only the first character (str.capitalize() would lowercase
+    the rest, turning 'the ServiceAccount' into 'The serviceaccount')."""
+    return text[:1].upper() + text[1:]
 
 
 def _get_type(G: nx.DiGraph, node_id: str) -> str:

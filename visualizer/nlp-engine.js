@@ -34,6 +34,12 @@ const NLP_TYPE_ARTICLES = {
     'database': 'the database backend',
     'node': 'the Kubernetes worker node',
     'ingress': 'the public Ingress controller',
+    'externalactor': 'the external actor',
+    'user': 'the user',
+    'group': 'the group',
+    'namespace': 'the namespace',
+    'persistentvolume': 'the PersistentVolume',
+    'deployment': 'the Deployment',
 };
 
 function getNlpArticle(type) {
@@ -215,6 +221,10 @@ function explainBlastRadiusNLP(sourceNodeId, graphData) {
     const blastList = graphData?.blast_radius || [];
     let entry = blastList.find(b => b.source === sourceNodeId || b.source_name === sourceNodeId);
 
+    // Not an entry point? Compute its blast radius on the fly.
+    if (!entry && sourceNodeId && typeof blastRadiusForNode === 'function') {
+        entry = blastRadiusForNode(graphData, sourceNodeId);
+    }
     if (!entry && blastList.length > 0) {
         entry = blastList[0];
     }
@@ -293,7 +303,7 @@ const SEMANTIC_INTENTS = {
     ],
     BLAST_RADIUS: [
         'blast', 'radius', 'impact', 'fallout', 'affected', 'damage', 'spread',
-        'contaminate', 'propagation', 'reach from', 'exposure of', 'blastradius'
+        'contaminate', 'propagation', 'exposure of', 'blastradius'
     ],
     CYCLE: [
         'cycle', 'loop', 'circular', 'infinite', 'ring', 'back and forth',
@@ -331,7 +341,8 @@ function parseNaturalLanguageQuery(query, graphData) {
     if (!query || !query.trim() || !graphData) return null;
 
     const q = query.toLowerCase().trim();
-    const tokens = q.split(/[\s,?;:!➔→\-]+/).filter(Boolean);
+    // Hyphens are kept: resource names like "web-frontend" must stay one token.
+    const tokens = q.split(/[\s,?;:!➔→]+/).map(t => t.replace(/^[.'"]+|[.'"]+$/g, '')).filter(Boolean);
     const nodes = graphData.nodes || [];
     const attackPaths = graphData.attack_paths || [];
 
@@ -394,12 +405,13 @@ function parseNaturalLanguageQuery(query, graphData) {
 
     // 4. Blast Radius Intent
     if (blastScore >= 0.75 || q.includes('blast') || q.includes('radius')) {
-        let matchedNode = null;
+        // Best-matching node across all tokens (not the first fuzzy hit)
+        let matchedNode = null, bestSim = 0;
         for (const token of tokens) {
-            const match = findBestNodeMatch(token);
-            if (match) {
-                matchedNode = match;
-                break;
+            if (token.length <= 2) continue;
+            for (const n of nodes) {
+                const sim = Math.max(stringSimilarity(token, n.name), stringSimilarity(token, n.id));
+                if (sim > bestSim && sim > 0.58) { bestSim = sim; matchedNode = n; }
             }
         }
         const explanation = explainBlastRadiusNLP(matchedNode ? matchedNode.id : null, graphData);

@@ -16,6 +16,7 @@ from typing import Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.markup import escape
 from rich.text import Text
 
 from . import __version__
@@ -26,7 +27,9 @@ from .ingestion import (
     dump_raw_kubernetes_state,
     enrich_cluster_graph,
 )
-from .graph_builder import build_attack_graph, resolve_node_id, get_node_name, graph_summary
+from .graph_builder import (
+    build_attack_graph, resolve_node_id, get_node_name, graph_summary, set_default_weight_mode,
+)
 from .algorithms.bfs import blast_radius, format_blast_radius
 from .algorithms.dijkstra import (
     shortest_attack_path,
@@ -51,6 +54,15 @@ app = typer.Typer(
 )
 
 console = Console()
+
+
+def _out(text: str) -> None:
+    """Print plain-text report output with Rich markup disabled.
+
+    Reports contain literal square brackets ("──[routes_to]──▸", "[pod]",
+    "[HIGH]") which Rich would otherwise swallow as markup tags.
+    """
+    console.print(text, markup=False)
 
 
 def _load_graph(
@@ -84,10 +96,12 @@ def _load_graph(
             console.print(f"[bold cyan]ℹ Live Enrichment:[/] Updated {count} CVE(s) from NVD.")
 
     G = build_attack_graph(cluster, use_cvss_weights=use_cvss)
-    
+
     summary = graph_summary(G)
     msg = f"Graph loaded: {summary['total_nodes']} nodes, {summary['total_edges']} edges"
-    if not use_cvss:
+    if G.graph.get("weight_mode") == "learned":
+        msg += " [bold magenta](LEARNED weights: -ln P(success))[/]"
+    elif not use_cvss:
         msg += " [bold yellow](CVSS WEIGHTS DISABLED)[/]"
     console.print(f"[bold green]✓[/] {msg}")
     
@@ -116,7 +130,7 @@ def _resolve_or_exit(G, identifier: str, label: str = "Node") -> str:
         console.print(f"[bold red]❌ {label} not found:[/] '{identifier}'")
         console.print("[dim]Available nodes:[/]")
         for nid, data in G.nodes(data=True):
-            console.print(f"  • {data.get('name', nid)} ({nid})")
+            _out(f"  • {data.get('name', nid)} ({nid})")
         raise typer.Exit(code=1)
     return node_id
 
@@ -141,7 +155,7 @@ def cmd_blast_radius(
 
     result = blast_radius(G, source_id, max_depth=depth)
     report = format_blast_radius(G, result)
-    console.print(report)
+    _out(report)
 
     _save_report(report, output)
 
@@ -179,19 +193,19 @@ def cmd_shortest_path(
     console.print("  SHORTEST ATTACK PATH (Dijkstra)")
     console.print("=" * 70)
     path_report = format_attack_path(G, path)
-    console.print(path_report)
+    _out(path_report)
 
     # NLP Explanation
     from .nlp_explainer import explain_path
     nlp_text = "\n  📝 Natural Language Explanation:\n" + "  " + explain_path(G, path).replace("\n", "\n  ")
-    console.print(nlp_text)
+    _out(nlp_text)
 
     # Remediation
     fixes = generate_path_remediation(G, path)
     rem_text = "\n  Remediation:\n"
     for fix in fixes:
         rem_text += f"    {fix}\n"
-    console.print(rem_text)
+    _out(rem_text)
     console.print("=" * 70)
 
     full_text = f"SHORTEST ATTACK PATH\n{path_report}\n{nlp_text}\n{rem_text}"
@@ -217,7 +231,7 @@ def cmd_cycles(
 
     result = detect_cycles(G)
     report = format_cycles(G, result)
-    console.print(report)
+    _out(report)
 
     # Remediation
     rem_msg = ""
@@ -227,7 +241,7 @@ def cmd_cycles(
         for fix in fixes:
             rem_msg += f"    {fix}\n"
         rem_msg += "=" * 70 + "\n"
-        console.print(rem_msg)
+        _out(rem_msg)
 
     _save_report(report + rem_msg, output)
 
@@ -252,12 +266,12 @@ def cmd_critical_node(
 
     result = critical_node_analysis(G, top_n=top_n)
     report = format_critical_nodes(G, result)
-    console.print(report)
+    _out(report)
 
     # Explanation
     from .nlp_explainer import explain_critical_node
     nlp_text = "\n  📝 Explanation:\n" + "  " + explain_critical_node(G, result).replace("\n", "\n  ") + "\n"
-    console.print(nlp_text)
+    _out(nlp_text)
 
     # Remediation
     rem_text = ""
@@ -267,7 +281,7 @@ def cmd_critical_node(
         for fix in fixes:
             rem_text += f"    {fix}\n"
         rem_text += "=" * 70 + "\n"
-        console.print(rem_text)
+        _out(rem_text)
 
     _save_report(report + nlp_text + rem_text, output)
 
@@ -297,7 +311,7 @@ def cmd_full_report(
         blast_id = _resolve_or_exit(G, blast_source, "Blast radius source")
 
     report = generate_full_report(G, blast_source=blast_id, blast_depth=blast_depth)
-    console.print(report)
+    _out(report)
 
     _save_report(report, output)
 
@@ -337,7 +351,7 @@ def cmd_graph_info(
         if data.get("is_sink"):
             flags.append("SINK")
         flag_str = f" [{', '.join(flags)}]" if flags else ""
-        console.print(
+        _out(
             f"    {data.get('name', nid)} [{data.get('type', '?')}] "
             f"ns={data.get('namespace', '?')} risk={data.get('risk_score', 0):.1f}{flag_str}"
         )
@@ -375,11 +389,11 @@ def cmd_diff(
 
     console.print(f"[bold blue]📊 Comparing:[/] {old} → {new}")
     diff = temporal_diff(old, new)
-    console.print(format_temporal_diff(diff))
+    _out(format_temporal_diff(diff))
 
     # Show alert summary
     if diff.alerts:
-        console.print(format_alert_summary(diff.alerts))
+        _out(format_alert_summary(diff.alerts))
 
     if output_json:
         with open(output_json, "w", encoding="utf-8") as f:
@@ -439,7 +453,7 @@ def cmd_watch(
         scan_count += 1
         if diff.has_changes:
             console.print(f"\n[bold yellow]⚡ Change detected (scan #{scan_count}):[/]")
-            console.print(format_temporal_diff(diff))
+            _out(format_temporal_diff(diff))
         else:
             console.print(f"[dim]  Scan #{scan_count}: No changes.[/]")
 
@@ -451,7 +465,7 @@ def cmd_watch(
             "MEDIUM": "yellow", "LOW": "blue", "INFO": "dim",
         }
         color = sev_colors.get(alert.severity, "white")
-        console.print(f"  [{color}]🚨 [{alert.severity}] {alert.title}[/]")
+        console.print(f"  [{color}]🚨 {escape(f'[{alert.severity}] {alert.title}')}[/]")
 
     watcher = TemporalWatcher(
         interval_seconds=interval,
@@ -475,7 +489,7 @@ def cmd_watch(
         elif not diff.has_changes:
             console.print("[bold green]✓ No changes detected.[/]")
 
-        console.print(format_snapshot_history(watcher.store))
+        _out(format_snapshot_history(watcher.store))
 
         if output_json and watcher.diff_history:
             history = [d.to_dict() for d in watcher.diff_history]
@@ -511,7 +525,7 @@ def cmd_watch(
     console.print(f"  Scans performed:  {scan_count}")
     console.print(f"  Alerts generated: {alert_count}")
     console.print(f"  Snapshots stored: {watcher.snapshot_count}")
-    console.print(format_snapshot_history(watcher.store))
+    _out(format_snapshot_history(watcher.store))
 
     if output_json and watcher.diff_history:
         history = [d.to_dict() for d in watcher.diff_history]
@@ -544,7 +558,7 @@ def cmd_temporal_history(
         console.print("[dim]  Run 'watch --single' or 'temporal-snapshot' to capture one.[/]")
         return
 
-    console.print(format_snapshot_history(store))
+    _out(format_snapshot_history(store))
 
     if diff_all:
         pairs = store.get_consecutive_pairs()
@@ -556,9 +570,9 @@ def cmd_temporal_history(
         for i, (old, new) in enumerate(pairs, 1):
             console.print(f"\n[bold blue]─── Diff #{i}: {old.timestamp} → {new.timestamp} ───[/]")
             diff = diff_snapshots(old, new)
-            console.print(format_temporal_diff(diff))
+            _out(format_temporal_diff(diff))
             if diff.alerts:
-                console.print(format_alert_summary(diff.alerts))
+                _out(format_alert_summary(diff.alerts))
             all_diffs.append(diff)
 
         if output_json:
@@ -617,7 +631,7 @@ def cmd_temporal_snapshot(
     if old_snap and old_snap.graph_hash == new_snap.graph_hash:
         console.print("[bold green]✓ Snapshot captured (identical to previous).[/]")
         store.add(new_snap)
-        console.print(format_snapshot_history(store))
+        _out(format_snapshot_history(store))
         return
 
     store.add(new_snap)
@@ -627,10 +641,10 @@ def cmd_temporal_snapshot(
     # Diff against previous
     if diff_previous and old_snap:
         diff = diff_snapshots(old_snap, new_snap)
-        console.print(format_temporal_diff(diff))
+        _out(format_temporal_diff(diff))
 
         if diff.alerts:
-            console.print(format_alert_summary(diff.alerts))
+            _out(format_alert_summary(diff.alerts))
 
         # Neo4j export if changes detected
         if neo4j_uri and diff.has_changes:
@@ -645,7 +659,7 @@ def cmd_temporal_snapshot(
     elif not old_snap:
         console.print("[dim]  First snapshot — diff will be available after next capture.[/]")
 
-    console.print(format_snapshot_history(store))
+    _out(format_snapshot_history(store))
 
 
 @app.command("classify")
@@ -662,7 +676,7 @@ def cmd_classify(
     G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss, enrich=enrich)
     paths = all_shortest_paths(G)
     report = format_classified_paths(G, paths)
-    console.print(report)
+    _out(report)
     _save_report(report, output)
 
 
@@ -681,7 +695,7 @@ def cmd_rbac_audit(
     G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss, enrich=enrich)
     result = analyze_rbac(G)
     report = format_rbac_analysis(result)
-    console.print(report)
+    _out(report)
     _save_report(report, output)
 
     if output_json:
@@ -717,7 +731,7 @@ def cmd_explain(
     console.print("\n" + "=" * 70)
     console.print("  NATURAL LANGUAGE ATTACK PATH EXPLANATION")
     console.print("=" * 70)
-    console.print(explain_path(G, path))
+    _out(explain_path(G, path))
     console.print("=" * 70)
 
 
@@ -736,7 +750,7 @@ def cmd_node_risk(
     G, _ = _load_graph(input_file, kubectl, use_cvss=use_cvss, enrich=enrich)
     entries = compute_node_risk_amplification(G, cutoff=15)
     report = format_node_risk(entries, top_n=top_n)
-    console.print(report)
+    _out(report)
     _save_report(report, output)
 
 
@@ -764,7 +778,7 @@ def cmd_run_tests():
 
     console.print("[bold blue]🧪 Running built-in test suite...[/]")
     result = run_all_tests()
-    console.print(format_test_results(result))
+    _out(format_test_results(result))
 
     if not result.success:
         raise typer.Exit(code=1)
@@ -786,6 +800,111 @@ def cmd_dump_raw(
         raise typer.Exit(code=1)
 
 
+# ─── ML Commands ─────────────────────────────────────────────────────────────
+
+
+@app.command("ml-fetch-data")
+def cmd_ml_fetch_data(
+    start_year: int = typer.Option(2010, "--start-year", help="First NVD year to download."),
+    epss: bool = typer.Option(True, "--epss/--no-epss", help="Also download EPSS (benchmark only)."),
+    force: bool = typer.Option(False, "--force", help="Re-download files that already exist."),
+):
+    """⬇️  Download training data: CISA KEV, NVD CVE feeds, FIRST EPSS."""
+    from datetime import datetime, timezone
+    from .ml.datasets import fetch_all
+    from .ml.paths import RAW_DIR
+
+    years = range(start_year, datetime.now(timezone.utc).year + 1)
+    console.print(f"[bold cyan]Downloading datasets to {RAW_DIR}[/]")
+    fetch_all(years=years, with_epss=epss, force=force, log=_out)
+    console.print("[bold green]✓ Done.[/] Next: python main.py ml-train")
+
+
+@app.command("ml-train")
+def cmd_ml_train(
+    rebuild: bool = typer.Option(False, "--rebuild", help="Rebuild the CVE feature table from raw data."),
+):
+    """🧠 Train the CVE exploitation model and write the model card."""
+    from .ml import datasets
+    from .ml.cve_model import build_cve_table, train_cve_model
+    from .ml.model_card import write_model_card
+    from .ml.paths import CVE_FEATURES_PATH, MODEL_CARD_MD
+
+    if not datasets.kev_path().exists() or not datasets.available_nvd_years():
+        console.print("[bold red]❌ No training data.[/] Run: python main.py ml-fetch-data")
+        raise typer.Exit(code=1)
+
+    df = None
+    if rebuild or not CVE_FEATURES_PATH.exists():
+        console.print("[bold cyan]Building CVE feature table...[/]")
+        df = build_cve_table(log=_out)
+    console.print("[bold cyan]Training CVE exploitation model...[/]")
+    train_cve_model(df, log=_out)
+    write_model_card()
+    console.print(f"[bold green]✓ Models trained.[/] Model card: {MODEL_CARD_MD}")
+    console.print("[dim]Use them with: python main.py --weights learned full-report -i <graph.json>[/]")
+
+
+@app.command("ml-edges")
+def cmd_ml_edges(
+    input_file: Optional[str] = typer.Option(None, "--input", "-i", help="Input JSON file."),
+    kubectl: bool = typer.Option(False, "--kubectl", "-k", help="Ingest from live cluster."),
+    output_json: Optional[str] = typer.Option(None, "--output-json", help="Export edge scores as JSON."),
+):
+    """📊 Show learned P(success) and weight for every edge next to its static weight."""
+    from .ml.weights import get_learned_weights, models_available
+
+    if not models_available():
+        console.print("[bold red]❌ No trained models.[/] Run: python main.py ml-train")
+        raise typer.Exit(code=1)
+    if kubectl:
+        cluster = ingest_from_kubectl()
+    elif input_file:
+        cluster = ingest_from_json(input_file)
+    else:
+        console.print("[bold red]❌ Error:[/] You must provide --input or --kubectl.")
+        raise typer.Exit(code=1)
+
+    scorer = get_learned_weights()
+    nodes = {n.id: n for n in cluster.nodes}
+    rows = []
+    for e in cluster.edges:
+        if e.source not in nodes or e.target not in nodes:
+            continue
+        s, t = nodes[e.source], nodes[e.target]
+        sc = scorer.score_edge(s.type, e.relationship, t.type, e.cve, e.cvss, t.cves)
+        rows.append({"source": s.name, "target": t.name, "relationship": e.relationship,
+                     "static_weight": e.weight, **sc})
+    rows.sort(key=lambda r: r["weight"])
+
+    _out("=" * 108)
+    _out("  LEARNED EDGE WEIGHTS  (weight = -ln P(success); lower = easier for an attacker)")
+    _out("=" * 108)
+    _out(f"  {'Edge':<46}{'Category':<23}{'P(succ)':>8}{'Learned':>9}{'Static':>8}  Exploit evidence")
+    _out("  " + "-" * 106)
+    for r in rows:
+        edge = f"{r['source']} ─[{r['relationship']}]→ {r['target']}"
+        ev = f"{r['exploit_cve']} p={r['p_exploit']:.3f} ({r['exploit_evidence']})" if r["exploit_cve"] or r["p_exploit"] else ""
+        _out(f"  {edge[:45]:<46}{r['category']:<23}{r['p_success']:>8.3f}{r['weight']:>9.2f}{r['static_weight']:>8.1f}  {ev}")
+    _out("=" * 108)
+
+    if output_json:
+        with open(output_json, "w", encoding="utf-8") as f:
+            json.dump(rows, f, indent=2)
+        console.print(f"[bold green]✓ Edge scores exported:[/] {output_json}")
+
+
+@app.command("ml-info")
+def cmd_ml_info():
+    """ℹ️  Show the trained models' provenance and evaluation metrics."""
+    from .ml.paths import MODEL_CARD_JSON, MODEL_CARD_MD
+
+    if not MODEL_CARD_JSON.exists():
+        console.print("[bold yellow]⚠ No model card yet.[/] Run: python main.py ml-train")
+        raise typer.Exit(code=1)
+    _out(MODEL_CARD_MD.read_text(encoding="utf-8"))
+
+
 def version_callback(value: bool):
     if value:
         console.print(f"KubeAttackViz v{__version__}")
@@ -798,6 +917,14 @@ def main(
         False, "--version", "-v", callback=version_callback, is_eager=True,
         help="Show version and exit.",
     ),
+    weights: str = typer.Option(
+        "static", "--weights", "-w", envvar="KAV_WEIGHTS",
+        help="Edge weights: 'static' (from the input file) or 'learned' (ML: -ln P(success)).",
+    ),
+    online_cve: bool = typer.Option(
+        False, "--online-cve", envvar="KAV_ONLINE_CVE",
+        help="Learned weights: fetch unknown CVEs' NVD records online (cached).",
+    ),
 ):
     """🛡️  KubeAttackViz v2.0 — Kubernetes Attack Path Visualizer
 
@@ -806,4 +933,15 @@ def main(
     critical node analysis, RBAC auditing, temporal diff, NLP explanations,
     and D3.js visualization export.
     """
-    pass
+    weights = weights.lower()
+    if weights not in ("static", "learned"):
+        console.print(f"[bold red]❌ --weights must be 'static' or 'learned', got '{weights}'.[/]")
+        raise typer.Exit(code=1)
+    if weights == "learned":
+        from .ml.weights import get_learned_weights, models_available
+        if not models_available():
+            console.print("[bold red]❌ Learned weights need trained models.[/] "
+                          "Run: python main.py ml-fetch-data && python main.py ml-train")
+            raise typer.Exit(code=1)
+        get_learned_weights(allow_network=online_cve)
+    set_default_weight_mode(weights)

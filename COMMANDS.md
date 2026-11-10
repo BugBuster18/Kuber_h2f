@@ -75,7 +75,7 @@ All nodes now store these separate components for transparent risk reasoning.
 
 ## 🧪 7. Validation
 ### `run-tests`
-Runs the built-in 13-test validation suite to ensure algorithm accuracy.
+Runs the built-in 20-test validation suite to ensure algorithm accuracy.
 ```bash
 python main.py run-tests
 ```
@@ -122,3 +122,17 @@ The `watch`, `diff`, and `temporal-snapshot` commands all support the `--neo4j-u
 - **DiffEvents**: Structural changes (Added/Removed nodes and edges).
 - **Alerts**: Security alerts linked to the specific change that triggered them.
 - **Attack Paths**: Visualized as chains in Neo4j (NEW/REMOVED).
+
+---
+
+## 🧠 9. Learned Edge Weights (ML)
+Replace static edge weights with `-ln P(success)` from models trained on real CVE data.
+```bash
+python main.py ml-fetch-data                       # CISA KEV + NVD + EPSS → data/raw/
+python main.py ml-train                            # train + write artifacts/MODEL_CARD.md
+python main.py ml-info                             # metrics and provenance
+python main.py ml-edges -i cluster.json            # learned vs static weight per edge
+python main.py --weights learned full-report -i cluster.json
+KAV_WEIGHTS=learned python main.py diff old.json new.json
+```
+Add `--online-cve` to fetch NVD records for CVEs not in the shipped score table.

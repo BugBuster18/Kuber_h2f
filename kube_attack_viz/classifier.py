@@ -89,8 +89,11 @@ def classify_path(G: nx.DiGraph, path: AttackPath) -> list[str]:
 def compute_advanced_score(path: AttackPath) -> float:
     """Compute the advanced composite score for a path.
 
-    Formula:
-        final_score = (risk * 0.6) + (hop_count * 0.2) + (max_cvss * 0.2)
+    Formula (0-10 scale, higher = more urgent):
+        final_score = (risk * 0.7) + (max_cvss * 0.3)
+
+    risk already rewards short/cheap paths, so hop count is not added
+    separately (adding it would make longer paths look *more* urgent).
 
     Args:
         path: AttackPath to score.
@@ -98,15 +101,14 @@ def compute_advanced_score(path: AttackPath) -> float:
     Returns:
         Composite floating-point score.
     """
-    risk_component = path.total_risk * 0.6
-    hop_component = path.hop_count * 0.2
+    risk_component = path.total_risk * 0.7
     max_cvss = max(
         (c for c in path.cvss_scores if c is not None),
         default=0.0,
     )
-    cvss_component = max_cvss * 0.2
+    cvss_component = max_cvss * 0.3
 
-    return risk_component + hop_component + cvss_component
+    return risk_component + cvss_component
 
 
 def format_classified_paths(
@@ -138,7 +140,10 @@ def format_classified_paths(
         lines.append(f"\n  Path #{idx}: {' → '.join(path.path_names)}")
         lines.append(f"    Categories: {', '.join(categories)}")
         lines.append(f"    Advanced Score: {score:.2f}")
-        lines.append(f"    Risk: {path.total_risk:.2f} | Hops: {path.hop_count} | Severity: {path.severity}")
+        lines.append(
+            f"    Risk: {path.total_risk:.2f}/10 | Cost: {path.total_cost:.2f} | "
+            f"Hops: {path.hop_count} | Severity: {path.severity}"
+        )
 
     lines.append("=" * 70)
     return "\n".join(lines)

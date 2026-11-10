@@ -7,29 +7,85 @@ representing the easiest (least resistance) attack path.
 
 from __future__ import annotations
 
+import math
+
 import networkx as nx
 
 from ..models import AttackPath
 from ..graph_builder import get_node_name
 
 
-def _severity_label(total_risk: float) -> str:
-    """Map total risk score to a severity label.
+# ─── Risk model ──────────────────────────────────────────────────────────────
+#
+# Edge weights are *costs*: the effort an attacker spends on a hop (lower =
+# easier; CVEs lower it further). A path is dangerous when it is CHEAP and
+# leads to a VALUABLE target, so risk must go DOWN as cost goes UP:
+#
+#     total_risk = sink_impact / (1 + total_cost / RISK_COST_SCALE)
+#
+# sink_impact is the target node's risk_score (0-10), so total_risk is on a
+# 0-10 scale. Keep in sync with computePathRisk() in visualizer/script.js.
+
+RISK_COST_SCALE = 10.0
+DEFAULT_SINK_IMPACT = 5.0
+
+SEVERITY_THRESHOLDS = (
+    (7.0, "CRITICAL"),
+    (5.0, "HIGH"),
+    (3.0, "MEDIUM"),
+)
+
+# Learned mode: risk = impact x P(path) is an expected impact, so bands are
+# lower. E.g. CRITICAL = at least a 40% chance of reaching a 10-impact target.
+LEARNED_SEVERITY_THRESHOLDS = (
+    (4.0, "CRITICAL"),
+    (1.5, "HIGH"),
+    (0.5, "MEDIUM"),
+)
+
+
+def compute_path_risk(
+    sink_impact: float | None,
+    total_cost: float,
+    weight_mode: str = "static",
+) -> float:
+    """Compute a path's danger score from its target value and traversal cost.
+
+    static:  impact / (1 + cost / RISK_COST_SCALE)   (cost = effort units)
+    learned: impact * exp(-cost)                       (cost = -ln P(path),
+             so this is impact x probability the whole path succeeds)
 
     Args:
-        total_risk: Sum of edge weights along the path.
+        sink_impact: risk_score of the path's final node (0-10).
+        total_cost: Sum of effective edge weights along the path.
+        weight_mode: "static" or "learned" (see graph_builder).
+
+    Returns:
+        Danger score on a 0-10 scale (higher = more dangerous).
+    """
+    impact = DEFAULT_SINK_IMPACT if sink_impact is None else float(sink_impact)
+    cost = max(total_cost, 0.0)
+    if weight_mode == "learned":
+        return impact * math.exp(-cost)
+    return impact / (1.0 + cost / RISK_COST_SCALE)
+
+
+def _severity_label(total_risk: float, weight_mode: str = "static") -> str:
+    """Map a path danger score (0-10) to a severity label.
+
+    Args:
+        total_risk: Path danger score (see compute_path_risk).
+        weight_mode: "static" (CRITICAL >= 7, HIGH >= 5, MEDIUM >= 3) or
+            "learned" (CRITICAL >= 4, HIGH >= 1.5, MEDIUM >= 0.5).
 
     Returns:
         Severity string: CRITICAL, HIGH, MEDIUM, or LOW.
     """
-    if total_risk > 20:
-        return "CRITICAL"
-    elif total_risk > 10:
-        return "HIGH"
-    elif total_risk > 5:
-        return "MEDIUM"
-    else:
-        return "LOW"
+    bands = LEARNED_SEVERITY_THRESHOLDS if weight_mode == "learned" else SEVERITY_THRESHOLDS
+    for threshold, label in bands:
+        if total_risk >= threshold:
+            return label
+    return "LOW"
 
 
 def shortest_attack_path(
@@ -79,7 +135,9 @@ def shortest_attack_path(
         cvss_scores.append(edge_data.get("cvss"))
 
     hop_count = len(path_nodes) - 1
-    severity = _severity_label(total_weight)
+    weight_mode = G.graph.get("weight_mode", "static")
+    total_risk = compute_path_risk(G.nodes[target].get("risk_score"), total_weight, weight_mode)
+    severity = _severity_label(total_risk, weight_mode)
 
     return AttackPath(
         path_nodes=path_nodes,
@@ -88,8 +146,10 @@ def shortest_attack_path(
         cves=cves,
         cvss_scores=cvss_scores,
         hop_count=hop_count,
-        total_risk=total_weight,
+        total_risk=total_risk,
+        total_cost=total_weight,
         severity=severity,
+        success_probability=math.exp(-total_weight) if weight_mode == "learned" else None,
     )
 
 
@@ -102,7 +162,7 @@ def all_shortest_paths(
         G: The attack graph.
 
     Returns:
-        List of AttackPath objects, sorted by total risk ascending.
+        List of AttackPath objects, most dangerous first (risk descending).
     """
     from ..graph_builder import get_source_nodes, get_sink_nodes
 
@@ -116,8 +176,8 @@ def all_shortest_paths(
             if path is not None:
                 paths.append(path)
 
-    # Sort by total risk ascending
-    paths.sort(key=lambda p: p.total_risk)
+    # Most dangerous first; ties broken by cheaper (easier) path
+    paths.sort(key=lambda p: (-p.total_risk, p.total_cost))
     return paths
 
 
@@ -133,7 +193,14 @@ def format_attack_path(G: nx.DiGraph, path: AttackPath) -> str:
     """
     lines: list[str] = []
     lines.append(f"  Path: {' → '.join(path.path_names)}")
-    lines.append(f"  Hops: {path.hop_count} | Risk: {path.total_risk:.2f} | Severity: {path.severity}")
+    prob = (
+        f" | P(success): {path.success_probability * 100:.1f}%"
+        if path.success_probability is not None else ""
+    )
+    lines.append(
+        f"  Hops: {path.hop_count} | Risk: {path.total_risk:.2f}/10 | "
+        f"Cost: {path.total_cost:.2f}{prob} | Severity: {path.severity}"
+    )
 
     for i in range(len(path.relationships)):
         src_name = path.path_names[i]
@@ -158,7 +225,7 @@ def format_all_paths(G: nx.DiGraph, paths: list[AttackPath]) -> str:
     """
     lines: list[str] = []
     lines.append("=" * 70)
-    lines.append("  ATTACK PATHS (Sorted by Risk — Ascending)")
+    lines.append("  ATTACK PATHS (Sorted by Risk — Most Dangerous First)")
     lines.append("=" * 70)
 
     if not paths:

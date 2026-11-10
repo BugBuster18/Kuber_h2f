@@ -1,0 +1,220 @@
+{
+  "ml_version": "1.0.0",
+  "generated_at": "2026-11-10T09:23:28.515732+00:00",
+  "cve_model": {
+    "task": "P(CVE is exploited in the wild), label = listed in CISA KEV",
+    "algorithm": "HistGradientBoostingClassifier (scikit-learn), log-loss objective",
+    "sklearn_version": "1.7.2",
+    "trained_at": "2026-11-10T09:23:28.376088+00:00",
+    "training_rows": 361825,
+    "positives": 1743,
+    "features": [
+      "av",
+      "ac",
+      "pr",
+      "ui",
+      "scope",
+      "conf",
+      "integ",
+      "avail",
+      "base_score",
+      "exploitability_score",
+      "impact_score",
+      "cvss_major",
+      "has_exploit_ref",
+      "has_patch_ref",
+      "has_vendor_advisory",
+      "log_n_refs",
+      "log_vendor_cves",
+      "published_year",
+      "kw_rce",
+      "kw_auth_bypass",
+      "kw_cmd_injection",
+      "kw_deserialization",
+      "kw_path_traversal",
+      "kw_priv_esc",
+      "kw_sqli",
+      "kw_xss",
+      "kw_dos",
+      "kw_container",
+      "kw_in_the_wild",
+      "cwe"
+    ],
+    "evaluation": {
+      "split": "temporal: train <= 2023, test > 2023",
+      "metrics": {
+        "cvss_score_only_logreg": {
+          "roc_auc": 0.7696,
+          "pr_auc": 0.0123,
+          "brier": 0.00312,
+          "log_loss": 0.02066,
+          "base_rate": 0.00313,
+          "precision_at_100": 0.05
+        },
+        "logistic_regression": {
+          "roc_auc": 0.877,
+          "pr_auc": 0.1121,
+          "brier": 0.00297,
+          "log_loss": 0.01694,
+          "base_rate": 0.00313,
+          "precision_at_100": 0.48
+        },
+        "gradient_boosting": {
+          "roc_auc": 0.8867,
+          "pr_auc": 0.108,
+          "brier": 0.00296,
+          "log_loss": 0.01688,
+          "base_rate": 0.00313,
+          "precision_at_100": 0.54
+        },
+        "epss_benchmark_on_same_test_cves": {
+          "roc_auc": 0.9753,
+          "pr_auc": 0.4282,
+          "brier": 0.00303,
+          "log_loss": 0.01499,
+          "base_rate": 0.00314,
+          "note": "EPSS is a production model scored with today's data (hindsight); shown as an upper reference, not a fair baseline.",
+          "precision_at_100": 0.89
+        },
+        "gradient_boosting_on_epss_subset": {
+          "roc_auc": 0.8865,
+          "pr_auc": 0.108,
+          "brier": 0.00296,
+          "log_loss": 0.01692,
+          "base_rate": 0.00314
+        },
+        "gradient_boosting_score_only_inputs": {
+          "roc_auc": 0.7775,
+          "pr_auc": 0.0098,
+          "brier": 0.00312,
+          "log_loss": 0.02048,
+          "base_rate": 0.00313
+        },
+        "out_of_fold_all_years": {
+          "roc_auc": 0.9365,
+          "pr_auc": 0.3095,
+          "brier": 0.00388,
+          "log_loss": 0.01906,
+          "base_rate": 0.00482
+        }
+      }
+    },
+    "kev_catalog_version": "2026.11.09"
+  },
+  "edge_weights": {
+    "formula": "P(edge) = 1 - (1 - prior[category]) * (1 - p_exploit); weight = -ln P(edge)",
+    "learned_component": "p_exploit from the CVE model",
+    "assumed_component": "prior[category] (no public hop-level outcome data exists)",
+    "priors": {
+      "endpoint_reachability": 0.95,
+      "workload_entry": 0.06,
+      "workload_to_workload": 0.08,
+      "identity_use": 0.85,
+      "rbac_binding": 0.97,
+      "permission_use": 0.9,
+      "config_access": 0.88,
+      "data_store_access": 0.7,
+      "infrastructure_access": 0.12,
+      "scope_control": 0.8,
+      "workload_control": 0.9,
+      "other": 0.5
+    }
+  },
+  "data_sources": {
+    "kev.json": {
+      "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
+      "sha256": "4372c54ba169d113742974d9e0c68b3523d8e4374c9b2bdcf28712b68565d5cf",
+      "fetched_at": "2026-11-10T09:00:58.068404+00:00"
+    },
+    "CVE-2010.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2010.json.xz",
+      "sha256": "ad3758a9acb49f7613ed1606bd0efd6517fc1b42e26b7f3eb5d1284bdfe8ba32",
+      "fetched_at": "2026-11-10T09:01:59.332071+00:00"
+    },
+    "CVE-2011.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2011.json.xz",
+      "sha256": "dee7aac93bd547bafea0031db18818549361d54ac9e250ee2261c4a92ae6ef95",
+      "fetched_at": "2026-11-10T09:03:00.679425+00:00"
+    },
+    "CVE-2012.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2012.json.xz",
+      "sha256": "809439df35faaf88c15c89fd46eedebe09987cecb3e94f58475679e2371b6907",
+      "fetched_at": "2026-11-10T09:03:02.100850+00:00"
+    },
+    "CVE-2013.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2013.json.xz",
+      "sha256": "5c55f3f4ebc46b81e3367bbd682d8317fa30ab02d3cbacde2b81f2ba5419ca3a",
+      "fetched_at": "2026-11-10T09:03:04.669499+00:00"
+    },
+    "CVE-2014.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2014.json.xz",
+      "sha256": "23356ec5537d9754516108aaaff6a2cc7b301386207692c9e87bf48173c864e3",
+      "fetched_at": "2026-11-10T09:03:05.920787+00:00"
+    },
+    "CVE-2015.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2015.json.xz",
+      "sha256": "04f01a46de88a500457e620e6d8dd1a69b325fdbc068e419e349534ecfcf86f0",
+      "fetched_at": "2026-11-10T09:03:07.541310+00:00"
+    },
+    "CVE-2016.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2016.json.xz",
+      "sha256": "65e63e75adca98609202094d7c5970675742282797e8bdd69644689def3d3018",
+      "fetched_at": "2026-11-10T09:03:08.781720+00:00"
+    },
+    "CVE-2017.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2017.json.xz",
+      "sha256": "1e4c38d7ef2904361e6583c3a5665cfe350895ae0c720fa35c0ce8fe4a4467bd",
+      "fetched_at": "2026-11-10T09:04:10.916555+00:00"
+    },
+    "CVE-2018.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2018.json.xz",
+      "sha256": "040cb04f9efb19fd6536d1a85d9d7f47a3cc04bab888972e3ad5e723ac447972",
+      "fetched_at": "2026-11-10T09:04:12.674163+00:00"
+    },
+    "CVE-2019.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2019.json.xz",
+      "sha256": "3778d414921f4f09cd2527c56e18e553546c43db710d361e9c8019d0c31989dd",
+      "fetched_at": "2026-11-10T09:05:14.074642+00:00"
+    },
+    "CVE-2020.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2020.json.xz",
+      "sha256": "08c629bfc4154e7b5a2663465ddb93083155883c3c4ede05a74325995a737ff5",
+      "fetched_at": "2026-11-10T09:05:15.662742+00:00"
+    },
+    "CVE-2021.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2021.json.xz",
+      "sha256": "bea9afdf365bbb53e45e803712bfcbc15fb07976db4e6167b4dc5e57fb3c77ae",
+      "fetched_at": "2026-11-10T09:05:17.622896+00:00"
+    },
+    "CVE-2022.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2022.json.xz",
+      "sha256": "1c8855614bd00f7459b578f20eb0a39471a0ee2383e9c278f28dfe353759e9db",
+      "fetched_at": "2026-11-10T09:05:19.176689+00:00"
+    },
+    "CVE-2023.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2023.json.xz",
+      "sha256": "e4c5d2ca289b4cab6f90c6c64c0576cafbc17e4bc69dcbd65aa697be2d1016b0",
+      "fetched_at": "2026-11-10T09:06:20.889318+00:00"
+    },
+    "CVE-2024.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2024.json.xz",
+      "sha256": "fe398e1d0aca6412411402b39e6a9ecd276d24b5a6c3f645daecd07ba6e3dcd3",
+      "fetched_at": "2026-11-10T09:06:23.569753+00:00"
+    },
+    "CVE-2025.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2025.json.xz",
+      "sha256": "b7f93bae0e5e6f9e661c9fe0f4d2b31ba1ed5ed1c7ef1c552b01bf35e3d1c000",
+      "fetched_at": "2026-11-10T09:06:25.806232+00:00"
+    },
+    "CVE-2026.json.xz": {
+      "url": "https://github.com/fkie-cad/nvd-json-data-feeds/releases/latest/download/CVE-2026.json.xz",
+      "sha256": "0f0d288630b235cc3a3ec37efd2abf982b62010397e2fb003f286186d778e242",
+      "fetched_at": "2026-11-10T09:06:29.716510+00:00"
+    },
+    "epss_scores-current.csv.gz": {
+      "url": "https://epss.empiricalsecurity.com/epss_scores-current.csv.gz",
+      "sha256": "23bda31009c5c72fe7cdce2bc60b06bc9f41d113d631f13971192f4657ed714a",
+      "fetched_at": "2026-11-10T09:06:31.575134+00:00"
+    }
+  }
+}
