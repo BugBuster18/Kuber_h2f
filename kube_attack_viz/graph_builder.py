@@ -70,9 +70,11 @@ def build_attack_graph(
             name=node.name,
             namespace=node.namespace,
             risk_score=node.risk_score,
+            impact=node.impact,          # asset value when known (else risk_score is used)
             is_source=node.is_source,
             is_sink=node.is_sink,
             cves=node.cves,
+            properties=node.properties,
         )
 
     # ── Add edges (skip dangling refs, deduplicate) ──────────────────────────
@@ -118,16 +120,31 @@ def build_attack_graph(
             reduction = edge.cvss / 10.0
             effective_cost = max(0.1, base_cost * (1.0 - reduction))
 
-        G.add_edge(
-            edge.source,
-            edge.target,
+        attrs = dict(
             relationship=edge.relationship,
             weight=effective_cost,
             base_cost=base_cost,  # preserved for auditing
             cve=edge.cve,
             cvss=edge.cvss,
+            features=edge.features,
+            evidence=edge.evidence,
             **extra,
         )
+        # A DiGraph holds one edge per (source, target). When several
+        # relationships connect the same pair (e.g. can_impersonate and
+        # can_create_token), keep the EASIEST for path analysis and record
+        # the others — previously the last one written silently won.
+        if G.has_edge(edge.source, edge.target):
+            existing = G.edges[edge.source, edge.target]
+            alts = existing.get("alternatives", [])
+            if effective_cost < existing["weight"]:
+                prev = {k: v for k, v in existing.items() if k != "alternatives"}
+                attrs["alternatives"] = alts + [prev]
+                G.add_edge(edge.source, edge.target, **attrs)
+            else:
+                existing["alternatives"] = alts + [attrs]
+            continue
+        G.add_edge(edge.source, edge.target, **attrs)
 
     if skipped_edges > 0:
         import sys

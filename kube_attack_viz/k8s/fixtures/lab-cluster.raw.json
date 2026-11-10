@@ -1,0 +1,635 @@
+{
+ "namespaces": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "shop",
+     "labels": {
+      "team": "shop"
+     }
+    }
+   },
+   {
+    "metadata": {
+     "name": "payments",
+     "labels": {
+      "team": "payments",
+      "pod-security.kubernetes.io/enforce": "restricted"
+     }
+    }
+   },
+   {
+    "metadata": {
+     "name": "ci"
+    }
+   },
+   {
+    "metadata": {
+     "name": "kube-system"
+    }
+   }
+  ]
+ },
+ "nodes": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "worker-1"
+    }
+   }
+  ]
+ },
+ "pods": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "web-frontend",
+     "namespace": "shop",
+     "labels": {
+      "app": "web"
+     }
+    },
+    "spec": {
+     "serviceAccountName": "web-sa",
+     "nodeName": "worker-1",
+     "containers": [
+      {
+       "name": "web-frontend",
+       "image": "nginx:1.25.3",
+       "ports": [
+        {
+         "containerPort": 8080
+        }
+       ],
+       "securityContext": {
+        "runAsNonRoot": true,
+        "allowPrivilegeEscalation": false,
+        "capabilities": {
+         "drop": [
+          "ALL"
+         ]
+        }
+       }
+      }
+     ],
+     "volumes": []
+    }
+   },
+   {
+    "metadata": {
+     "name": "checkout",
+     "namespace": "shop",
+     "labels": {
+      "app": "checkout"
+     }
+    },
+    "spec": {
+     "serviceAccountName": "checkout-sa",
+     "nodeName": "worker-1",
+     "containers": [
+      {
+       "name": "checkout",
+       "image": "shop/checkout:2.1",
+       "ports": [
+        {
+         "containerPort": 8080
+        }
+       ],
+       "securityContext": {
+        "runAsUser": 1000
+       }
+      }
+     ],
+     "volumes": [],
+     "automountServiceAccountToken": false
+    }
+   },
+   {
+    "metadata": {
+     "name": "debug-pod",
+     "namespace": "shop",
+     "labels": {
+      "app": "debug"
+     }
+    },
+    "spec": {
+     "serviceAccountName": "default",
+     "nodeName": "worker-1",
+     "containers": [
+      {
+       "name": "debug-pod",
+       "image": "busybox:1.36",
+       "ports": [
+        {
+         "containerPort": 8080
+        }
+       ],
+       "securityContext": {
+        "privileged": true
+       }
+      }
+     ],
+     "volumes": [
+      {
+       "name": "h0",
+       "hostPath": {
+        "path": "/"
+       }
+      }
+     ],
+     "hostPID": true
+    }
+   },
+   {
+    "metadata": {
+     "name": "payments-api",
+     "namespace": "payments",
+     "labels": {
+      "app": "payments"
+     }
+    },
+    "spec": {
+     "serviceAccountName": "payments-sa",
+     "nodeName": "worker-1",
+     "containers": [
+      {
+       "name": "payments-api",
+       "image": "payments/api:4.0",
+       "ports": [
+        {
+         "containerPort": 8080
+        }
+       ],
+       "securityContext": {
+        "runAsUser": 0,
+        "capabilities": {
+         "add": [
+          "NET_ADMIN"
+         ]
+        }
+       }
+      }
+     ],
+     "volumes": [
+      {
+       "name": "s0",
+       "secret": {
+        "secretName": "db-creds"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "metadata": {
+     "name": "deployer-runner",
+     "namespace": "ci",
+     "labels": {
+      "app": "runner"
+     }
+    },
+    "spec": {
+     "serviceAccountName": "deployer",
+     "nodeName": "worker-1",
+     "containers": [
+      {
+       "name": "deployer-runner",
+       "image": "ci/runner:1.0",
+       "ports": [
+        {
+         "containerPort": 8080
+        }
+       ],
+       "env": [
+        {
+         "name": "TOKEN",
+         "valueFrom": {
+          "secretKeyRef": {
+           "name": "registry-token",
+           "key": "t"
+          }
+         }
+        }
+       ]
+      }
+     ],
+     "volumes": []
+    }
+   }
+  ]
+ },
+ "services": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "web",
+     "namespace": "shop"
+    },
+    "spec": {
+     "type": "LoadBalancer",
+     "selector": {
+      "app": "web"
+     },
+     "ports": [
+      {
+       "port": 80
+      }
+     ]
+    }
+   },
+   {
+    "metadata": {
+     "name": "checkout",
+     "namespace": "shop"
+    },
+    "spec": {
+     "type": "ClusterIP",
+     "selector": {
+      "app": "checkout"
+     },
+     "ports": [
+      {
+       "port": 8080
+      }
+     ]
+    }
+   },
+   {
+    "metadata": {
+     "name": "payments",
+     "namespace": "payments"
+    },
+    "spec": {
+     "type": "ClusterIP",
+     "selector": {
+      "app": "payments"
+     },
+     "ports": [
+      {
+       "port": 8080
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "ingresses": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "shop-ingress",
+     "namespace": "shop"
+    },
+    "spec": {
+     "rules": [
+      {
+       "http": {
+        "paths": [
+         {
+          "path": "/",
+          "backend": {
+           "service": {
+            "name": "web",
+            "port": {
+             "number": 80
+            }
+           }
+          }
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "serviceaccounts": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "web-sa",
+     "namespace": "shop"
+    }
+   },
+   {
+    "metadata": {
+     "name": "checkout-sa",
+     "namespace": "shop"
+    }
+   },
+   {
+    "metadata": {
+     "name": "default",
+     "namespace": "shop"
+    }
+   },
+   {
+    "metadata": {
+     "name": "payments-sa",
+     "namespace": "payments"
+    }
+   },
+   {
+    "metadata": {
+     "name": "deployer",
+     "namespace": "ci"
+    }
+   }
+  ]
+ },
+ "secrets": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "web-tls",
+     "namespace": "shop"
+    },
+    "type": "kubernetes.io/tls"
+   },
+   {
+    "metadata": {
+     "name": "db-creds",
+     "namespace": "payments"
+    },
+    "type": "Opaque"
+   },
+   {
+    "metadata": {
+     "name": "api-key",
+     "namespace": "payments"
+    },
+    "type": "Opaque"
+   },
+   {
+    "metadata": {
+     "name": "registry-token",
+     "namespace": "ci"
+    },
+    "type": "Opaque"
+   },
+   {
+    "metadata": {
+     "name": "bootstrap",
+     "namespace": "kube-system"
+    },
+    "type": "Opaque"
+   }
+  ]
+ },
+ "configmaps": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": []
+ },
+ "roles": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "config-reader",
+     "namespace": "shop"
+    },
+    "rules": [
+     {
+      "apiGroups": [
+       ""
+      ],
+      "resources": [
+       "secrets"
+      ],
+      "verbs": [
+       "get",
+       "list"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "clusterroles": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "secret-reader"
+    },
+    "rules": [
+     {
+      "apiGroups": [
+       ""
+      ],
+      "resources": [
+       "secrets"
+      ],
+      "verbs": [
+       "get"
+      ],
+      "resourceNames": [
+       "db-creds"
+      ]
+     }
+    ]
+   },
+   {
+    "metadata": {
+     "name": "pod-exec"
+    },
+    "rules": [
+     {
+      "apiGroups": [
+       ""
+      ],
+      "resources": [
+       "pods/exec"
+      ],
+      "verbs": [
+       "create"
+      ]
+     },
+     {
+      "apiGroups": [
+       ""
+      ],
+      "resources": [
+       "pods"
+      ],
+      "verbs": [
+       "get",
+       "list"
+      ]
+     }
+    ]
+   },
+   {
+    "metadata": {
+     "name": "cluster-admin"
+    },
+    "rules": [
+     {
+      "apiGroups": [
+       "*"
+      ],
+      "resources": [
+       "*"
+      ],
+      "verbs": [
+       "*"
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "rolebindings": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "web-config",
+     "namespace": "shop"
+    },
+    "roleRef": {
+     "kind": "Role",
+     "name": "config-reader"
+    },
+    "subjects": [
+     {
+      "kind": "ServiceAccount",
+      "name": "web-sa",
+      "namespace": "shop"
+     }
+    ]
+   },
+   {
+    "metadata": {
+     "name": "payments-read",
+     "namespace": "payments"
+    },
+    "roleRef": {
+     "kind": "ClusterRole",
+     "name": "secret-reader"
+    },
+    "subjects": [
+     {
+      "kind": "ServiceAccount",
+      "name": "payments-sa",
+      "namespace": "payments"
+     }
+    ]
+   },
+   {
+    "metadata": {
+     "name": "shop-debug-exec",
+     "namespace": "shop"
+    },
+    "roleRef": {
+     "kind": "ClusterRole",
+     "name": "pod-exec"
+    },
+    "subjects": [
+     {
+      "kind": "Group",
+      "name": "system:serviceaccounts:shop"
+     }
+    ]
+   }
+  ]
+ },
+ "clusterrolebindings": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "ci-admin"
+    },
+    "roleRef": {
+     "kind": "ClusterRole",
+     "name": "cluster-admin"
+    },
+    "subjects": [
+     {
+      "kind": "ServiceAccount",
+      "name": "deployer",
+      "namespace": "ci"
+     }
+    ]
+   }
+  ]
+ },
+ "networkpolicies": {
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+   {
+    "metadata": {
+     "name": "default-deny",
+     "namespace": "payments"
+    },
+    "spec": {
+     "podSelector": {},
+     "policyTypes": [
+      "Ingress"
+     ]
+    }
+   },
+   {
+    "metadata": {
+     "name": "allow-checkout",
+     "namespace": "payments"
+    },
+    "spec": {
+     "podSelector": {
+      "matchLabels": {
+       "app": "payments"
+      }
+     },
+     "policyTypes": [
+      "Ingress"
+     ],
+     "ingress": [
+      {
+       "from": [
+        {
+         "namespaceSelector": {
+          "matchLabels": {
+           "team": "shop"
+          }
+         },
+         "podSelector": {
+          "matchLabels": {
+           "app": "checkout"
+          }
+         }
+        }
+       ],
+       "ports": [
+        {
+         "port": 8080
+        }
+       ]
+      }
+     ]
+    }
+   }
+  ]
+ }
+}

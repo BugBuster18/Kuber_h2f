@@ -169,15 +169,24 @@ def _check_escalation_chains(G: nx.DiGraph, result: RBACAnalysisResult) -> None:
                     role_data = G.nodes.get(role_node, {})
                     if role_data.get("type") == "clusterrole":
                         role_name = role_data.get("name", "")
+                        binding_name = get_node_name(G, successor)
+                        # A ClusterRole bound by a RoleBinding is limited to
+                        # that binding's namespace — only a
+                        # ClusterRoleBinding grants it cluster-wide.
+                        if succ_data.get("type") == "clusterrolebinding":
+                            severity = "HIGH"
+                            scope = "This grants the ClusterRole's permissions cluster-wide."
+                        else:
+                            severity = "MEDIUM"
+                            scope = (f"Scoped to namespace '{succ_data.get('namespace', '?')}' "
+                                     f"(RoleBinding), not cluster-wide.")
                         result.findings.append(
                             RBACFinding(
-                                severity="HIGH",
+                                severity=severity,
                                 category="escalation-chain",
                                 description=(
-                                    f"ServiceAccount '{sa_name}' escalates to "
-                                    f"ClusterRole '{role_name}' via "
-                                    f"'{get_node_name(G, successor)}'. "
-                                    f"This grants cluster-wide permissions."
+                                    f"ServiceAccount '{sa_name}' is bound to "
+                                    f"ClusterRole '{role_name}' via '{binding_name}'. {scope}"
                                 ),
                                 affected_nodes=[node_id, successor, role_node],
                             )

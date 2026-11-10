@@ -10,7 +10,14 @@ A **production-grade CLI + visualization platform** that analyzes Kubernetes clu
 kube_attack_viz/
 ├── __init__.py                # Package metadata (v2.0)
 ├── models.py                  # Strict data models (Node, Edge, ClusterGraph, results)
-├── ingestion.py               # Data ingestion (JSON file + live kubectl)
+├── ingestion.py               # Data ingestion (graph JSON, raw dump, live kubectl)
+├── k8s/                       # Exact feasibility engine (live clusters / raw dumps)
+│   ├── inventory.py           #   kubectl JSON → typed resources (Secrets: metadata only)
+│   ├── rbac.py                #   RBAC evaluation (scopes, wildcards, resourceNames, groups)
+│   ├── netpol.py              #   NetworkPolicy pod-to-pod reachability
+│   ├── podsec.py              #   Pod Security Standards host-access properties
+│   ├── graph.py               #   Inventory → attack graph (+ per-edge features, evidence)
+│   └── fixtures/              #   Lab cluster with known-by-construction answers
 ├── graph_builder.py           # NetworkX DiGraph construction & helpers
 ├── cli.py                     # Typer CLI (18 commands)
 ├── report_generator.py        # Kill Chain Report (console + JSON export)
@@ -20,7 +27,7 @@ kube_attack_viz/
 ├── rbac_analyzer.py           # RBAC risk analyzer
 ├── nlp_explainer.py           # Natural language path explanations
 ├── node_risk.py               # Node risk amplification via path centrality
-├── test_runner.py             # Built-in 20-test validation suite
+├── test_runner.py             # Built-in 27-test validation suite
 ├── frontend_export.py         # D3.js frontend JSON exporter
 ├── cve_service.py             # NIST NVD CVSS lookup + local cache
 ├── ml/                        # Learned edge weights (see "Learned Edge Weights")
@@ -129,13 +136,13 @@ Dependencies: `networkx`, `typer[all]`, `rich`, `requests`, `scikit-learn`/`nump
 | `node-risk` | Amplified risk scores based on path centrality |
 | `diff <old> <new>` | Temporal analysis — diff two cluster snapshots |
 | `export-frontend` | Export JSON for D3.js visualization |
-| `run-tests` | Built-in 20-test validation suite |
+| `run-tests` | Built-in 27-test validation suite |
 | `graph-info` | Graph structure summary |
 | `export-graph` | Export graph JSON (useful after kubectl ingestion) |
 | `watch` | Continuous scan → snapshot → diff → alert loop |
 | `temporal-snapshot` | Capture one snapshot (and diff against the previous) |
 | `temporal-history` | List snapshots and replay diffs |
-| `dump-raw` | Dump raw kubectl resource JSON |
+| `dump-raw` | Dump raw kubectl resource JSON (Secret metadata only; usable with `--input`) |
 
 ### Machine Learning
 
@@ -225,6 +232,42 @@ python -m http.server 8080
 | **Zoom & Pan** | Full viewport control |
 | **Detail Panel** | Click node → connections, attack paths through, risk bar |
 | **File Upload** | Drag & drop JSON or click to browse |
+
+---
+
+## ☸️ Live Clusters
+
+With `--kubectl` (or a `dump-raw` file passed to `--input`), the graph is built by the
+**exact feasibility engine** in `kube_attack_viz/k8s/`. An edge exists only when the
+cluster's configuration actually allows the transition:
+
+| Edge | Exists when |
+|---|---|
+| internet → Service / Ingress | Service type LoadBalancer/NodePort, or an Ingress |
+| Ingress → Service → Pod | Ingress backend; Service selector matches pod labels |
+| Pod → ServiceAccount | Token is auto-mounted (pod setting overrides SA setting) |
+| ServiceAccount → binding → role | Subject match, incl. `system:serviceaccounts[:<ns>]` groups |
+| binding → Secret / Pod / ServiceAccount / Node / cluster-admin | RBAC allows read secrets, exec, create pods/deployments, create tokens, impersonate, bind/escalate, nodes/proxy — evaluated with namespace scope, wildcards and `resourceNames` |
+| Pod → Secret | Volume or env reference |
+| Pod → Pod | NetworkPolicy allows ingress at the destination **and** egress at the source |
+| Pod → Node | Pod violates a Pod Security Standards *baseline* host-isolation control |
+
+Every edge carries `evidence` (the object that makes it possible) and `features` (its
+security properties), and a **feasibility** label: `exact` (configuration decides it)
+or `conditional` (configuration permits the attempt; success depends on e.g. an
+exploitable vulnerability — the edges where learned probabilities apply).
+
+```bash
+kubectl apply -f deploy/scanner-rbac.yaml        # least-privilege, read-only scanner
+python main.py dump-raw -o cluster.raw.json      # Secret values are never fetched
+python main.py full-report -i cluster.raw.json   # analyse offline
+python main.py watch -n 300 -s kubectl           # continuous monitoring
+```
+
+Assumptions: the CNI enforces NetworkPolicy; aggregated ClusterRoles are read as
+materialized by the API server; admission webhooks, `ipBlock` peers and
+nonResourceURLs are not modelled. Resources the scanner cannot list are reported,
+not silently skipped.
 
 ---
 
@@ -377,7 +420,7 @@ Nodes that appear in many attack paths get significantly higher amplified scores
 python main.py run-tests
 ```
 
-Runs 20 deterministic tests:
+Runs 27 deterministic tests:
 1. Graph construction (node/edge count)
 2. Source/sink detection
 3. BFS layering + no duplicates
@@ -398,6 +441,9 @@ Runs 20 deterministic tests:
 18. Weight math: weight = −ln P, CVE evidence only raises P
 19. Learned graph: P(path) = product of hop probabilities, risk = impact × P
 20. CVE predictor evidence order (KEV → model → CVSS-only)
+21–27. Feasibility engine on a lab cluster with known answers: label selectors, RBAC
+   scoping/resourceNames/groups, NetworkPolicy (default-deny, AND peers, ports, egress),
+   Pod Security Standards, graph edges, metadata-only Secrets, parallel edges
 
 ---
 

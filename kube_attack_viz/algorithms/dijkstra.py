@@ -136,7 +136,9 @@ def shortest_attack_path(
 
     hop_count = len(path_nodes) - 1
     weight_mode = G.graph.get("weight_mode", "static")
-    total_risk = compute_path_risk(G.nodes[target].get("risk_score"), total_weight, weight_mode)
+    sink = G.nodes[target]
+    impact = sink.get("impact") if sink.get("impact") is not None else sink.get("risk_score")
+    total_risk = compute_path_risk(impact, total_weight, weight_mode)
     severity = _severity_label(total_risk, weight_mode)
 
     return AttackPath(

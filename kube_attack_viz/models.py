@@ -39,10 +39,15 @@ class NodeData:
     image: Optional[str] = None
     likelihood: Optional[float] = None
     impact: Optional[float] = None
+    properties: dict = field(default_factory=dict)   # e.g. pod security context
 
     def to_dict(self) -> dict:
-        """Serialize node to dictionary matching the strict original schema."""
-        return {
+        """Serialize node to dictionary matching the strict original schema.
+
+        `properties` is only emitted when non-empty, so files produced by
+        older versions round-trip unchanged.
+        """
+        out = {
             "id": self.id,
             "type": self.type.capitalize() if self.type else "Unknown",
             "name": self.name,
@@ -52,6 +57,13 @@ class NodeData:
             "is_sink": self.is_sink,
             "cves": self.cves,
         }
+        if self.impact is not None:
+            out["impact"] = round(float(self.impact), 2)
+        if self.likelihood is not None:
+            out["likelihood"] = round(float(self.likelihood), 2)
+        if self.properties:
+            out["properties"] = self.properties
+        return out
 
     @classmethod
     def from_dict(cls, data: dict) -> NodeData:
@@ -68,6 +80,7 @@ class NodeData:
             image=data.get("image"),
             likelihood=data.get("likelihood"),
             impact=data.get("impact"),
+            properties=dict(data.get("properties") or {}),
         )
 
 
@@ -90,10 +103,13 @@ class EdgeData:
     weight: float
     cve: Optional[str] = None
     cvss: Optional[float] = None
+    features: dict = field(default_factory=dict)     # security properties of the transition
+    evidence: Optional[str] = None                   # why the transition exists (exact source)
 
     def to_dict(self) -> dict:
-        """Serialize edge to dictionary matching the strict original schema."""
-        return {
+        """Serialize edge to dictionary matching the strict original schema
+        (features/evidence only emitted when present)."""
+        out = {
             "source": self.source,
             "target": self.target,
             "relationship": self.relationship,
@@ -101,6 +117,11 @@ class EdgeData:
             "cve": self.cve,
             "cvss": self.cvss,
         }
+        if self.features:
+            out["features"] = self.features
+        if self.evidence:
+            out["evidence"] = self.evidence
+        return out
 
     @classmethod
     def from_dict(cls, data: dict) -> EdgeData:
@@ -112,6 +133,8 @@ class EdgeData:
             weight=float(data["weight"]),
             cve=data.get("cve"),
             cvss=float(data["cvss"]) if data.get("cvss") is not None else None,
+            features=dict(data.get("features") or {}),
+            evidence=data.get("evidence"),
         )
 
 

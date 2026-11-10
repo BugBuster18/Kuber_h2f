@@ -420,6 +420,10 @@ def run_all_tests() -> TestResult:
         except (AssertionError, ValueError, KeyError) as e:
             result.fail("CVE exploit predictor", str(e))
 
+    # ── Tests 21-27: exact feasibility engine (kube_attack_viz/k8s) ──────────
+    from .k8s.selftest import run_k8s_tests
+    run_k8s_tests(result)
+
     return result
 
 
