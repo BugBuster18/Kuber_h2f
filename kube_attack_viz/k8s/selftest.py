@@ -140,7 +140,7 @@ def run_k8s_tests(result) -> None:
         from .. import ingestion
         calls = []
 
-        def fake_kubectl(args):
+        def fake_kubectl(args, context=None):
             calls.append(args)
             if args[:2] == ["get", "secrets"]:
                 return "shop  web-tls  kubernetes.io/tls\n"

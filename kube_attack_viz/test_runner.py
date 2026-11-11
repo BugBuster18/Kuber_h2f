@@ -445,6 +445,10 @@ def run_all_tests() -> TestResult:
     from .k8s.selftest import run_k8s_tests
     run_k8s_tests(result)
 
+    # ── Tests 29-31: lab harness (no cluster needed) ─────────────────────────
+    from .lab.selftest import run_lab_tests
+    run_lab_tests(result)
+
     return result
 
 

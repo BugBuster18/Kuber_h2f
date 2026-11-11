@@ -49,8 +49,15 @@ class Grant:
     scope: str | None          # namespace, or None = cluster-wide
 
 
-def subject_identities(sa_namespace: str, sa_name: str) -> set[tuple[str, str, str | None]]:
-    """All (kind, name, namespace) identities a ServiceAccount authenticates as."""
+def subject_identities(sa_namespace: str | None, sa_name: str,
+                       kind: str = "serviceaccount") -> set[tuple[str, str, str | None]]:
+    """All (kind, name, namespace) identities a subject authenticates as.
+
+    ServiceAccounts are also in system:serviceaccounts[:<ns>]; every
+    authenticated subject (ServiceAccount or User) is in system:authenticated.
+    """
+    if kind == "user":
+        return {("user", sa_name, None), ("group", "system:authenticated", None)}
     return {
         ("serviceaccount", sa_name, sa_namespace),
         ("group", "system:serviceaccounts", None),
@@ -67,9 +74,10 @@ def _binding_matches(binding: Binding, identities: set[tuple[str, str, str | Non
     return False
 
 
-def grants_for(inv: Inventory, sa_namespace: str, sa_name: str) -> list[Grant]:
-    """Every (binding, role, rule) that applies to a ServiceAccount."""
-    identities = subject_identities(sa_namespace, sa_name)
+def grants_for(inv: Inventory, sa_namespace: str | None, sa_name: str,
+               kind: str = "serviceaccount") -> list[Grant]:
+    """Every (binding, role, rule) that applies to a ServiceAccount (or User)."""
+    identities = subject_identities(sa_namespace, sa_name, kind)
     grants: list[Grant] = []
     for b in inv.bindings:
         if not _binding_matches(b, identities):

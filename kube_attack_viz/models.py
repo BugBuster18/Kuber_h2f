@@ -251,6 +251,7 @@ class CycleResult:
     cycles: list[list[str]] = field(default_factory=list)
     cycle_names: list[list[str]] = field(default_factory=list)
     total_cycles: int = 0
+    truncated: bool = False        # enumeration stopped at the cap
 
     def to_dict(self) -> dict:
         """Serialize cycle result."""
@@ -258,12 +259,13 @@ class CycleResult:
             "cycles": self.cycles,
             "cycle_names": self.cycle_names,
             "total_cycles": self.total_cycles,
+            "truncated": self.truncated,
         }
 
 
 @dataclass
 class CriticalNodeResult:
-    """Result of critic2al node analysis (graph surgery).
+    """Result of critical node analysis (graph surgery).
 
     Attributes:
         top_nodes: List of (node_id, node_name, paths_eliminated) tuples.
@@ -272,10 +274,12 @@ class CriticalNodeResult:
 
     top_nodes: list[tuple[str, str, int]] = field(default_factory=list)
     total_paths_baseline: int = 0
+    metric: str = "paths"          # "paths" (exact) or "reachable_pairs" (dense graphs)
 
     def to_dict(self) -> dict:
         """Serialize critical node result."""
         return {
+            "metric": self.metric,
             "top_nodes": [
                 {"id": n[0], "name": n[1], "paths_eliminated": n[2]}
                 for n in self.top_nodes

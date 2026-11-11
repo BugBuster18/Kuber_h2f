@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load timeline button (try to load from snapshots/ or .temporal_snapshots/)
     document.getElementById('btn-load-timeline')?.addEventListener('click', async () => {
+        if (window.LIVE && window.LIVE.current) { loadLiveTimeline(); return; }
         try {
             const possibleBasePaths = ['snapshots', '../.temporal_snapshots', '.temporal_snapshots'];
 
@@ -178,18 +179,30 @@ function populateDashboard(data) {
     if (blastData.length === 0) {
         blastBody.innerHTML = '<p class="empty-state">No source nodes for blast radius.</p>';
     } else {
-        const maxAffected = Math.max(...blastData.map(b => b.total_affected), 1);
-        blastBody.innerHTML = blastData.map(b => {
+        const shown = blastData.slice(0, 8);
+        const maxAffected = Math.max(...shown.map(b => b.total_affected), 1);
+        blastBody.innerHTML = shown.map((b, i) => {
             const pct = (b.total_affected / maxAffected) * 100;
+            const kind = b.is_entry_point === false ? (b.source_type || 'workload') : 'entry point';
+            const sinks = typeof b.sinks_reached === 'number'
+                ? ` · <strong>${b.sinks_reached}</strong> target${b.sinks_reached === 1 ? '' : 's'}` : '';
             return `
-                <div class="blast-item">
+                <div class="blast-item" data-idx="${i}" title="Click for the blast-radius breakdown" style="cursor:pointer">
                     <div class="blast-label">
-                        <span>${b.source_name}</span>
-                        <span>${b.total_affected} affected</span>
+                        <span>${b.source_name} <span class="blast-kind blast-kind-${b.is_entry_point === false ? 'pod' : 'entry'}">${kind}</span></span>
+                        <span>${b.total_affected} affected${sinks}</span>
                     </div>
                     <div class="blast-bar"><div class="blast-bar-fill" style="width:${pct}%"></div></div>
                 </div>`;
-        }).join('');
+        }).join('') + (blastData.length > shown.length
+            ? `<p class="empty-state" style="margin-top:6px">+${blastData.length - shown.length} more workloads</p>` : '');
+        blastBody.querySelectorAll('.blast-item').forEach(el => el.addEventListener('click', () => {
+            const b = shown[+el.dataset.idx];
+            if (typeof explainBlastRadiusNLP === 'function' && typeof openNlpExplanationModal === 'function') {
+                const ex = explainBlastRadiusNLP(b.source, data);
+                if (ex) openNlpExplanationModal({ type: 'blast_radius', data: ex, highlightNodeId: b.source });
+            }
+        }));
     }
 
     // ── Critical Nodes ──────────────────────────────────────────
@@ -362,9 +375,22 @@ function setTimelineSourceNote(text) {
     note.textContent = text;
 }
 
-function renderDiffHistory(diffs) {
+async function loadLiveTimeline() {
+    const ctx = window.LIVE && window.LIVE.current;
+    if (!ctx) return;
+    const history = await (await fetch(`/api/history?cluster=${encodeURIComponent(ctx)}`, { cache: 'no-store' })).json();
+    if (!history.length) {
+        setTimelineSourceNote(`Live · ${ctx.replace('kind-', '')} · no changes since monitoring started`);
+        document.getElementById('timeline-track').innerHTML =
+            '<div class="tl-empty-state"><p>No changes detected yet.</p><p class="tl-hint">Try: <code>./demo/drift.sh prod admin-sa</code></p></div>';
+        return;
+    }
+    renderDiffHistory(history, `Live · ${ctx.replace('kind-', '')}`);
+}
+
+function renderDiffHistory(diffs, sourceLabel) {
     const mode = diffs.find(d => d.weight_mode)?.weight_mode || 'static';
-    setTimelineSourceNote(`Diffs from CLI export · ${mode === 'learned' ? 'ML (learned) weights' : 'static weights'}`);
+    setTimelineSourceNote(`${sourceLabel || 'Diffs from CLI export'} · ${mode === 'learned' ? 'ML (learned) weights' : 'static weights'}`);
     const track = document.getElementById('timeline-track');
     if (diffs.length === 0) {
         track.innerHTML = '<div class="tl-empty-state"><p>No diffs in this history.</p></div>';

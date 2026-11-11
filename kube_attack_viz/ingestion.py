@@ -12,6 +12,7 @@ Supports three ingestion modes:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -81,8 +82,15 @@ KUBECTL_RESOURCES = {
 _SECRET_COLUMNS = "NAMESPACE:.metadata.namespace,NAME:.metadata.name,TYPE:.type"
 
 
-def _kubectl(args: list[str]) -> str:
-    cmd = ["kubectl", *args]
+# Optional kubeconfig context to pin every kubectl call to (KAV_KUBE_CONTEXT).
+KUBE_CONTEXT: str | None = os.environ.get("KAV_KUBE_CONTEXT")
+
+
+def _kubectl(args: list[str], context: str | None = None) -> str:
+    """Run kubectl. `context` (else KUBE_CONTEXT) pins the kubeconfig context;
+    passing it explicitly keeps concurrent multi-cluster scans independent."""
+    ctx = context or KUBE_CONTEXT
+    cmd = ["kubectl", *(["--context", ctx] if ctx else []), *args]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60, check=False)
     except FileNotFoundError:
@@ -92,13 +100,14 @@ def _kubectl(args: list[str]) -> str:
     return result.stdout
 
 
-def _run_kubectl(resource: str) -> dict[str, Any]:
+def _run_kubectl(resource: str, context: str | None = None) -> dict[str, Any]:
     """`kubectl get <resource> --all-namespaces -o json`, parsed."""
-    return json.loads(_kubectl(["get", resource, "--all-namespaces", "-o", "json"]))
+    return json.loads(_kubectl(["get", resource, "--all-namespaces", "-o", "json"], context=context))
 
 
-def _secret_metadata() -> dict[str, Any]:
-    out = _kubectl(["get", "secrets", "--all-namespaces", "--no-headers", "-o", f"custom-columns={_SECRET_COLUMNS}"])
+def _secret_metadata(context: str | None = None) -> dict[str, Any]:
+    out = _kubectl(["get", "secrets", "--all-namespaces", "--no-headers", "-o", f"custom-columns={_SECRET_COLUMNS}"],
+                   context=context)
     items = []
     for line in out.splitlines():
         parts = line.split()
@@ -110,7 +119,7 @@ def _secret_metadata() -> dict[str, Any]:
     return {"items": items}
 
 
-def fetch_raw_state(log=None) -> dict[str, Any]:
+def fetch_raw_state(log=None, context: str | None = None) -> dict[str, Any]:
     """Query the cluster for every resource the analysis needs.
 
     Resource types that are missing or forbidden for the current identity are
@@ -120,12 +129,12 @@ def fetch_raw_state(log=None) -> dict[str, Any]:
     raw: dict[str, Any] = {"_errors": {}}
     for key, resource in KUBECTL_RESOURCES.items():
         try:
-            raw[key] = _run_kubectl(resource)
+            raw[key] = _run_kubectl(resource, context=context)
         except RuntimeError as e:
             raw[key] = {"items": []}
             raw["_errors"][key] = str(e)
     try:
-        raw["secrets"] = _secret_metadata()
+        raw["secrets"] = _secret_metadata(context=context)
     except RuntimeError as e:
         raw["secrets"] = {"items": []}
         raw["_errors"]["secrets"] = str(e)
@@ -140,22 +149,32 @@ def is_raw_state(data: dict[str, Any]) -> bool:
     return isinstance(data.get("pods"), dict) or isinstance(data.get("nodes"), dict)
 
 
-def cluster_from_raw(raw: dict[str, Any]) -> ClusterGraph:
-    """Build the attack graph from raw resource JSON (exact feasibility)."""
+# Include Kubernetes system namespaces/RBAC and dead-end nodes in graphs built
+# from live clusters or raw dumps (CLI: --include-system).
+INCLUDE_SYSTEM = False
+
+
+def cluster_from_raw(raw: dict[str, Any], include_system: bool | None = None) -> ClusterGraph:
+    """Build the attack graph from raw resource JSON (exact feasibility).
+
+    By default the graph is scoped to application namespaces and pruned to
+    nodes that can be on an attack path (see k8s.graph.build_cluster_graph).
+    """
     from .k8s.graph import build_cluster_graph
     from .k8s.inventory import parse_inventory
 
-    return build_cluster_graph(parse_inventory(raw))
+    return build_cluster_graph(parse_inventory(raw),
+                               include_system=INCLUDE_SYSTEM if include_system is None else include_system)
 
 
-def ingest_from_kubectl() -> ClusterGraph:
+def ingest_from_kubectl(context: str | None = None) -> ClusterGraph:
     """Ingest cluster state directly from a live Kubernetes cluster via kubectl.
 
     Uses the current kubeconfig context. Grant the identity read-only access
     (get/list) to the resources in KUBECTL_RESOURCES; Secret values are never
     read, only their names and types.
     """
-    return cluster_from_raw(fetch_raw_state(log=lambda m: print(m, file=sys.stderr)))
+    return cluster_from_raw(fetch_raw_state(log=lambda m: print(m, file=sys.stderr), context=context))
 
 
 def dump_raw_kubernetes_state(filepath: str | Path) -> None:

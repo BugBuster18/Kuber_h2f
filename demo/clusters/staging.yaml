@@ -1,0 +1,199 @@
+# kav-staging — pre-production. MIXED posture:
+#   * NetworkPolicy: payments only accepts traffic from shop/api
+#   * CI runner can read secrets cluster-wide (common over-grant)
+#   * shop/api can read secrets in payments (cross-namespace RoleBinding)
+#   * frontend token not mounted; others mounted
+#   * some images updated, payments still on a vulnerable httpd
+apiVersion: v1
+kind: Namespace
+metadata: {name: shop, labels: {team: shop}}
+---
+apiVersion: v1
+kind: Namespace
+metadata: {name: payments, labels: {team: payments}}
+---
+apiVersion: v1
+kind: Namespace
+metadata: {name: ci, labels: {team: platform}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: frontend, namespace: shop}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: api, namespace: shop}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: payments-api, namespace: payments}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: ci-runner, namespace: ci}
+---
+apiVersion: v1
+kind: Secret
+metadata: {name: db-creds, namespace: payments}
+type: Opaque
+stringData: {password: demo-only-not-a-real-secret}
+---
+apiVersion: v1
+kind: Secret
+metadata: {name: stripe-key, namespace: payments}
+type: Opaque
+stringData: {key: demo-only-not-a-real-secret}
+---
+apiVersion: v1
+kind: Secret
+metadata: {name: session-key, namespace: shop}
+type: Opaque
+stringData: {key: demo-only-not-a-real-secret}
+---
+apiVersion: v1
+kind: Secret
+metadata: {name: registry-token, namespace: ci}
+type: Opaque
+stringData: {token: demo-only-not-a-real-secret}
+---
+# ── Workloads ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Pod
+metadata: {name: frontend, namespace: shop, labels: {app: frontend}}
+spec:
+  serviceAccountName: frontend
+  containers:
+    - {name: web, image: "nginx:1.25.3", ports: [{containerPort: 80}]}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: api, namespace: shop, labels: {app: api}}
+spec:
+  serviceAccountName: api
+  containers:
+    - name: api
+      image: "hashicorp/http-echo:1.0.0"
+      args: ["-listen=:8080", "-text=api"]
+      ports: [{containerPort: 8080}]
+      env:
+        - name: SESSION_KEY
+          valueFrom: {secretKeyRef: {name: session-key, key: key}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: payments-api, namespace: payments, labels: {app: payments-api}}
+spec:
+  serviceAccountName: payments-api
+  containers:
+    - name: httpd
+      image: "httpd:2.4.49"
+      ports: [{containerPort: 80}]
+      volumeMounts: [{name: db, mountPath: /etc/db, readOnly: true}]
+  volumes:
+    - {name: db, secret: {secretName: db-creds}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: redis, namespace: payments, labels: {app: redis}}
+spec:
+  automountServiceAccountToken: false
+  containers:
+    - {name: redis, image: "redis:7.2.4", ports: [{containerPort: 6379}]}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: ci-runner, namespace: ci, labels: {app: ci-runner, kubeattackviz.io/entry-point: supply-chain}}
+spec:
+  serviceAccountName: ci-runner
+  containers:
+    - name: runner
+      image: "busybox:1.36"
+      command: ["sleep", "infinity"]
+      env:
+        - name: REGISTRY_TOKEN
+          valueFrom: {secretKeyRef: {name: registry-token, key: token}}
+---
+# ── Services ─────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata: {name: frontend, namespace: shop}
+spec: {type: NodePort, selector: {app: frontend}, ports: [{port: 80}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: api, namespace: shop}
+spec: {selector: {app: api}, ports: [{port: 8080}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: payments-api, namespace: payments}
+spec: {selector: {app: payments-api}, ports: [{port: 80}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: redis, namespace: payments}
+spec: {selector: {app: redis}, ports: [{port: 6379}]}
+---
+# ── NetworkPolicies ──────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-ingress, namespace: payments}
+spec: {podSelector: {}, policyTypes: [Ingress]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-shop-api, namespace: payments}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {team: shop}}
+          podSelector: {matchLabels: {app: api}}
+        - podSelector: {}
+---
+# ── RBAC ─────────────────────────────────────────────────────────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: {name: ci-secret-reader}
+rules:
+  - {apiGroups: [""], resources: [secrets], verbs: [get, list]}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: ci-runner-reads-all-secrets}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: ci-secret-reader}
+subjects: [{kind: ServiceAccount, name: ci-runner, namespace: ci}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: ci-runner-edit, namespace: ci}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: edit}
+subjects: [{kind: ServiceAccount, name: ci-runner, namespace: ci}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: read-db-creds, namespace: payments}
+rules:
+  - {apiGroups: [""], resources: [secrets], verbs: [get], resourceNames: [db-creds]}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: api-reads-db-creds, namespace: payments}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: read-db-creds}
+subjects: [{kind: ServiceAccount, name: api, namespace: shop}]
+
+---
+# ── Human access (each User is an entry point: a compromised credential) ─────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: qa-alice-edit, namespace: shop}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: edit}
+subjects: [{kind: User, name: qa-alice, apiGroup: rbac.authorization.k8s.io}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: sre-carol-oncall, namespace: payments}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: edit}
+subjects: [{kind: User, name: sre-carol, apiGroup: rbac.authorization.k8s.io}]

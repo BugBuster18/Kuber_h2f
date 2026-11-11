@@ -27,6 +27,19 @@ def export_for_frontend(
     blast_depth: int = 3,
     cutoff: int = 15,
 ) -> None:
+    """Write build_frontend_payload(G) to output_path."""
+    payload = build_frontend_payload(G, blast_depth=blast_depth, cutoff=cutoff)
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, default=str)
+
+
+def build_frontend_payload(
+    G: nx.DiGraph,
+    blast_depth: int = 3,
+    cutoff: int = 15,
+) -> dict:
     """Export the full graph + analysis results for the D3.js frontend.
 
     Output format:
@@ -58,6 +71,7 @@ def export_for_frontend(
             "is_source": data.get("is_source", False),
             "is_sink": data.get("is_sink", False),
             "cves": data.get("cves", []),
+            **({"properties": data["properties"]} if data.get("properties") else {}),
         })
 
     # ── Edges ────────────────────────────────────────────────────────────────
@@ -112,6 +126,7 @@ def export_for_frontend(
     # ── Critical node ────────────────────────────────────────────────────────
     cn = critical_node_analysis(G, top_n=5, cutoff=cutoff)
     critical_data = {
+        "metric": cn.metric,
         "baseline_paths": cn.total_paths_baseline,
         "top_nodes": [
             {"id": n[0], "name": n[1], "paths_eliminated": n[2]}
@@ -120,17 +135,27 @@ def export_for_frontend(
     }
 
     # ── Blast radius ─────────────────────────────────────────────────────────
-    sources = get_source_nodes(G)
+    # For every entry point AND every workload: "if this is compromised, what
+    # can be reached within blast_depth hops?" Sorted by impact.
+    sources = set(get_source_nodes(G))
+    origins = sorted(sources) + sorted(n for n, d in G.nodes(data=True)
+                                       if d.get("type") == "pod" and n not in sources)
     blast_data = []
-    for src in sources:
-        br = blast_radius(G, src, max_depth=blast_depth)
+    for origin in origins:
+        br = blast_radius(G, origin, max_depth=blast_depth)
+        reached = [n for layer in br.layers.values() for n in layer]
         blast_data.append({
-            "source": src,
-            "source_name": get_node_name(G, src),
+            "source": origin,
+            "source_name": get_node_name(G, origin),
+            "source_type": G.nodes[origin].get("type", "unknown"),
+            "is_entry_point": origin in sources,
             "max_depth": br.max_depth,
             "total_affected": br.total_affected,
+            "sinks_reached": sum(1 for n in reached if G.nodes[n].get("is_sink")),
             "layers": {str(k): v for k, v in br.layers.items()},
+            "layer_names": {str(k): [get_node_name(G, n) for n in v] for k, v in br.layers.items()},
         })
+    blast_data.sort(key=lambda b: (not b["is_entry_point"], -b["sinks_reached"], -b["total_affected"]))
 
     # ── Assemble ─────────────────────────────────────────────────────────────
     export = {
@@ -149,7 +174,4 @@ def export_for_frontend(
         "blast_radius": blast_data,
     }
 
-    path = Path(output_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(export, f, indent=2, default=str)
+    return export

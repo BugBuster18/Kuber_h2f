@@ -75,7 +75,7 @@ All nodes now store these separate components for transparent risk reasoning.
 
 ## 🧪 7. Validation
 ### `run-tests`
-Runs the built-in 27-test validation suite to ensure algorithm accuracy.
+Runs the built-in 31-test validation suite to ensure algorithm accuracy.
 ```bash
 python main.py run-tests
 ```

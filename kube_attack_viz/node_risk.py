@@ -70,17 +70,19 @@ def compute_node_risk_amplification(
     sources = get_source_nodes(G)
     sinks = get_sink_nodes(G)
 
-    # Count paths through each node
-    path_counts: dict[str, int] = {n: 0 for n in G.nodes}
+    # Count paths through each node (exact simple paths within budget;
+    # for dense graphs, the most-probable attack path per source/sink pair)
+    from .algorithms.critical_node import _BudgetExceeded, count_simple_paths
+    from .algorithms.dijkstra import all_shortest_paths
 
-    for src in sources:
-        for sink in sinks:
-            try:
-                for path in nx.all_simple_paths(G, src, sink, cutoff=cutoff):
-                    for node_id in path:
-                        path_counts[node_id] += 1
-            except nx.NodeNotFound:
-                continue
+    path_counts: dict[str, int] = {n: 0 for n in G.nodes}
+    try:
+        count_simple_paths(G, sources, sinks, cutoff=cutoff, per_node=path_counts)
+    except _BudgetExceeded:
+        path_counts = {n: 0 for n in G.nodes}
+        for p in all_shortest_paths(G):
+            for node_id in p.path_nodes:
+                path_counts[node_id] += 1
 
     # Compute amplified risk
     entries: list[NodeRiskEntry] = []

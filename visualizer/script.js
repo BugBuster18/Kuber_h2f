@@ -56,6 +56,7 @@ let zoom           = null;
 let attackPathEdges = new Set();
 let cycleEdges      = new Set();
 let criticalNodeIds = new Set();
+let lastPositions   = new Map();
 
 // ─── Initialization ─────────────────────────────────────────────────────────
 
@@ -180,7 +181,8 @@ function initControls() {
     if (clusterSelector) {
         clusterSelector.addEventListener('change', (e) => {
             const url = e.target.value;
-            if (url) loadGraphByUrl(url);
+            if (url && url.startsWith('live:')) selectLiveCluster(url.slice(5));
+            else if (url) { stopLive(); loadGraphByUrl(url); }
         });
     }
 
@@ -208,8 +210,8 @@ function initControls() {
         });
     }
 
-    // Auto-load graph data
-    loadDemoData();
+    // Live server (python main.py serve) if available, else static files
+    initDataSource();
 }
 
 // ─── Data Loading & Dynamic Enrichment ──────────────────────────────────────
@@ -447,7 +449,10 @@ function computeCycles(g) {
 }
 
 function computeBlastRadius(g, maxDepth = 3) {
-    return g.sources.map(src => {
+    const sourceSet = new Set(g.sources);
+    const origins = [...g.sources].sort().concat(
+        g.nodes.filter(n => n.type === 'pod' && !sourceSet.has(n.id)).map(n => n.id).sort());
+    const out = origins.map(src => {
         const visited = new Set([src]);
         const queue = [[src, 0]];
         const layers = {};
@@ -459,14 +464,24 @@ function computeBlastRadius(g, maxDepth = 3) {
                 if (!visited.has(e.target)) { visited.add(e.target); queue.push([e.target, depth + 1]); }
             }
         }
+        const reached = Object.values(layers).flat();
+        const layerNames = {};
+        Object.entries(layers).forEach(([k, ids]) => { layerNames[k] = ids.map(id => g.nodeMap.get(id)?.name || id); });
         return {
             source: src,
             source_name: g.nodeMap.get(src)?.name || src,
+            source_type: g.nodeMap.get(src)?.type || 'unknown',
+            is_entry_point: sourceSet.has(src),
             max_depth: maxDepth,
-            total_affected: Object.values(layers).reduce((n, l) => n + l.length, 0),
+            total_affected: reached.length,
+            sinks_reached: reached.filter(id => g.nodeMap.get(id)?.is_sink).length,
             layers,
+            layer_names: layerNames,
         };
     });
+    out.sort((a, b) => (a.is_entry_point === b.is_entry_point ? 0 : a.is_entry_point ? -1 : 1)
+        || (b.sinks_reached - a.sinks_reached) || (b.total_affected - a.total_affected));
+    return out;
 }
 
 /** Blast radius from any node (not only sources), same BFS as the CLI. */
@@ -728,7 +743,13 @@ function renderGraph(data) {
 
     if (simulation) simulation.stop();
 
-    const nodes = data.nodes.map(d => ({ ...d }));
+    // Live updates keep the previous layout: reuse positions of nodes we
+    // already placed, so only new nodes move and the view doesn't jump.
+    const keep = window.__keepLayout && lastPositions.size > 0;
+    const nodes = data.nodes.map(d => {
+        const prev = keep ? lastPositions.get(d.id) : null;
+        return prev ? { ...d, x: prev.x, y: prev.y } : { ...d };
+    });
     const edges = data.edges.map(d => ({ ...d }));
 
     // ── Force Simulation ────────────────────────────────────────────────────
@@ -748,6 +769,11 @@ function renderGraph(data) {
         .force('y', d3.forceY(height / 2).strength(0.05))
         .alphaDecay(0.02)
         .velocityDecay(0.4);
+    if (keep) simulation.alpha(0.15);
+    simulation.on('end.positions', () => {
+        lastPositions = new Map(nodes.map(n => [n.id, { x: n.x, y: n.y }]));
+    });
+    setTimeout(() => { lastPositions = new Map(nodes.map(n => [n.id, { x: n.x, y: n.y }])); }, 2500);
 
     // ── Edges ───────────────────────────────────────────────────────────────
     const links = linkGroup.selectAll('line')
@@ -829,7 +855,7 @@ function renderGraph(data) {
     updateVisibility();
 
     // Smooth entry: Zoom to fit after a small delay to allow for positioning
-    setTimeout(zoomToFit, 100);
+    if (!keep) setTimeout(zoomToFit, 100);
 }
 
 // ─── Smooth Zoom Logic ──────────────────────────────────────────────────────
@@ -1176,3 +1202,154 @@ document.addEventListener('click', (e) => {
         }
     }
 });
+
+
+// ─── Live mode (python main.py serve) ───────────────────────────────────────
+
+window.LIVE = null;   // { clusters, current, version, alertSeq, timer }
+
+async function initDataSource() {
+    try {
+        const resp = await fetch('/api/clusters', { cache: 'no-store' });
+        if (resp.ok) {
+            const info = await resp.json();
+            if (info.live && info.clusters && info.clusters.length) {
+                startLive(info.clusters);
+                return;
+            }
+        }
+    } catch (_) { /* static hosting */ }
+    loadDemoData();
+}
+
+function liveLabel(c) {
+    const sev = c.worst_severity ? ` · ${c.worst_severity}` : '';
+    const state = c.status === 'ok' ? `${c.attack_paths} paths${sev}` : c.status;
+    return `● ${c.name} (live) — ${state}`;
+}
+
+function startLive(clusters) {
+    const selector = document.getElementById('cluster-selector');
+    const statics = [...selector.querySelectorAll('option')].filter(o => !o.value.startsWith('live:') && o.value !== 'graph-data.json');
+    selector.innerHTML = '';
+    const liveGroup = document.createElement('optgroup');
+    liveGroup.label = 'Live clusters';
+    clusters.forEach(c => {
+        const o = document.createElement('option');
+        o.value = `live:${c.context}`;
+        o.textContent = liveLabel(c);
+        liveGroup.appendChild(o);
+    });
+    selector.appendChild(liveGroup);
+    const sampleGroup = document.createElement('optgroup');
+    sampleGroup.label = 'Samples (static)';
+    statics.forEach(o => sampleGroup.appendChild(o));
+    selector.appendChild(sampleGroup);
+
+    window.LIVE = { clusters, current: null, version: null, alertSeq: 0, timer: null };
+    ensureLivePill();
+    selectLiveCluster(clusters[0].context);
+    window.LIVE.timer = setInterval(pollLive, 4000);
+}
+
+function stopLive() {
+    if (!window.LIVE) return;
+    window.LIVE.current = null;
+    updateLivePill(null);
+}
+
+async function selectLiveCluster(context) {
+    if (!window.LIVE) return;
+    window.LIVE.current = context;
+    window.LIVE.version = null;
+    document.getElementById('cluster-selector').value = `live:${context}`;
+    lastPositions = new Map();
+    await refreshLiveGraph(false);
+    if (document.getElementById('view-timeline').classList.contains('active') && typeof loadLiveTimeline === 'function') {
+        loadLiveTimeline();
+    }
+}
+
+async function refreshLiveGraph(keepLayout) {
+    const ctx = window.LIVE && window.LIVE.current;
+    if (!ctx) return;
+    const resp = await fetch(`/api/graph?cluster=${encodeURIComponent(ctx)}`, { cache: 'no-store' });
+    if (resp.status === 503) { updateLivePill(null, 'first scan running…'); return; }
+    if (!resp.ok) return;
+    const data = await resp.json();
+    window.LIVE.version = data.metadata?.version ?? null;
+    window.__keepLayout = keepLayout;
+    try { loadGraphData(data); } finally { window.__keepLayout = false; }
+}
+
+async function pollLive() {
+    const L = window.LIVE;
+    if (!L) return;
+    try {
+        const info = await (await fetch('/api/clusters', { cache: 'no-store' })).json();
+        L.clusters = info.clusters;
+        const selector = document.getElementById('cluster-selector');
+        info.clusters.forEach(c => {
+            const o = selector.querySelector(`option[value="live:${CSS.escape(c.context)}"]`);
+            if (o) o.textContent = liveLabel(c);
+        });
+        const cur = info.clusters.find(c => c.context === L.current);
+        updateLivePill(cur);
+        if (cur && cur.version && cur.version !== L.version) {
+            await refreshLiveGraph(L.version !== null);
+            if (document.getElementById('view-timeline').classList.contains('active') && typeof loadLiveTimeline === 'function') {
+                loadLiveTimeline();
+            }
+        }
+        const alerts = await (await fetch(`/api/alerts?since=${L.alertSeq}`, { cache: 'no-store' })).json();
+        alerts.forEach(a => { L.alertSeq = Math.max(L.alertSeq, a.seq); showAlertToast(a); });
+    } catch (err) {
+        updateLivePill(null, 'server unreachable');
+    }
+}
+
+function ensureLivePill() {
+    if (document.getElementById('live-pill')) return;
+    const pill = document.createElement('div');
+    pill.id = 'live-pill';
+    pill.className = 'live-pill';
+    document.getElementById('topbar-metrics').before(pill);
+    const stack = document.createElement('div');
+    stack.id = 'toast-stack';
+    stack.className = 'toast-stack';
+    document.body.appendChild(stack);
+}
+
+function updateLivePill(cluster, message) {
+    const pill = document.getElementById('live-pill');
+    if (!pill) return;
+    if (!cluster) {
+        pill.className = 'live-pill live-off';
+        pill.textContent = message ? `● ${message}` : '○ static';
+        return;
+    }
+    const ago = cluster.last_scan_at ? Math.max(0, Math.round((Date.now() - Date.parse(cluster.last_scan_at)) / 1000)) : null;
+    pill.className = `live-pill ${cluster.status === 'ok' ? 'live-on' : 'live-err'}`;
+    pill.title = cluster.error || `Graph version ${cluster.version}, ${cluster.scans} scans, ${cluster.diffs} changes detected`;
+    pill.textContent = `● LIVE ${cluster.name} · scan #${cluster.scans}` + (ago !== null ? ` · ${ago}s ago` : '') +
+        (cluster.weight_mode === 'learned' ? ' · ML' : '');
+}
+
+function showAlertToast(alert) {
+    const stack = document.getElementById('toast-stack');
+    if (!stack) return;
+    const t = document.createElement('div');
+    t.className = `toast toast-${(alert.severity || 'info').toLowerCase()}`;
+    const strong = document.createElement('strong');
+    strong.textContent = `[${alert.severity}] ${alert.cluster.replace('kind-', '')}`;
+    const body = document.createElement('div');
+    body.textContent = alert.title;
+    t.append(strong, body);
+    t.addEventListener('click', () => {
+        if (alert.cluster !== window.LIVE?.current) selectLiveCluster(alert.cluster);
+        t.remove();
+    });
+    stack.prepend(t);
+    setTimeout(() => t.classList.add('toast-fade'), 9000);
+    setTimeout(() => t.remove(), 10000);
+}

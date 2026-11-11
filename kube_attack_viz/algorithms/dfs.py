@@ -35,7 +35,18 @@ def _normalize_cycle(cycle: list[str]) -> tuple[str, ...]:
     return tuple(rotated)
 
 
-def detect_cycles(G: nx.DiGraph) -> CycleResult:
+# Dense RBAC graphs can contain astronomically many elementary cycles (e.g.
+# cluster-admin can create a pod as any ServiceAccount, which loops back).
+# Enumeration is therefore bounded; CycleResult.truncated says when it was.
+MAX_CYCLES = 200
+MAX_CYCLE_LENGTH = 8
+
+
+def detect_cycles(
+    G: nx.DiGraph,
+    max_cycles: int = MAX_CYCLES,
+    length_bound: int | None = MAX_CYCLE_LENGTH,
+) -> CycleResult:
     """Detect all unique directed cycles in the attack graph using DFS.
 
     Uses NetworkX's simple_cycles() which implements Johnson's algorithm
@@ -48,17 +59,20 @@ def detect_cycles(G: nx.DiGraph) -> CycleResult:
     Returns:
         CycleResult containing all unique cycles as node ID and name lists.
     """
-    raw_cycles = list(nx.simple_cycles(G))
-
-    # Deduplicate using canonical form
+    # Deduplicate using canonical form; stop after max_cycles
     seen: set[tuple[str, ...]] = set()
     unique_cycles: list[list[str]] = []
+    truncated = False
 
-    for cycle in raw_cycles:
+    for cycle in nx.simple_cycles(G, length_bound=length_bound):
         canonical = _normalize_cycle(cycle)
         if canonical not in seen:
+            if len(unique_cycles) >= max_cycles:
+                truncated = True
+                break
             seen.add(canonical)
             unique_cycles.append(list(canonical))
+    unique_cycles.sort(key=lambda c: (len(c), c))
 
     # Convert to names
     cycle_names: list[list[str]] = []
@@ -70,6 +84,7 @@ def detect_cycles(G: nx.DiGraph) -> CycleResult:
         cycles=unique_cycles,
         cycle_names=cycle_names,
         total_cycles=len(unique_cycles),
+        truncated=truncated,
     )
 
 
@@ -87,7 +102,8 @@ def format_cycles(G: nx.DiGraph, result: CycleResult) -> str:
     lines.append("=" * 70)
     lines.append("  CYCLE DETECTION (Privilege Escalation Loops)")
     lines.append("=" * 70)
-    lines.append(f"  Total Unique Cycles: {result.total_cycles}")
+    lines.append(f"  Total Unique Cycles: {result.total_cycles}"
+                 + (f"+ (stopped after {result.total_cycles}; graph has more)" if result.truncated else ""))
     lines.append("-" * 70)
 
     if result.total_cycles == 0:

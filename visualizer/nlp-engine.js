@@ -237,8 +237,10 @@ function explainBlastRadiusNLP(sourceNodeId, graphData) {
 
     const executiveSummary = `If <strong>"${sourceName}"</strong> is compromised by an adversary, the immediate potential blast radius encompasses <strong>${totalAffected} cluster resources</strong> within ${maxDepth} network and privilege hops.`;
 
+    const names = entry.layer_names || {};
+    const nameOf = id => (graphData?.nodes || []).find(n => n.id === id)?.name || id;
     const layerBreakdown = Object.keys(layers).map(k => {
-        const nodes = layers[k] || [];
+        const nodes = names[k] || (layers[k] || []).map(nameOf);
         return {
             depth: k,
             count: nodes.length,

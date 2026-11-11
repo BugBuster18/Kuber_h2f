@@ -55,6 +55,9 @@ app = typer.Typer(
 
 console = Console()
 
+# Global options set by the app callback (see main()).
+_STATE = {"scan_images": False}
+
 
 def _out(text: str) -> None:
     """Print plain-text report output with Rich markup disabled.
@@ -89,6 +92,12 @@ def _load_graph(
     else:
         console.print("[bold red]❌ Error:[/] You must provide --input or --kubectl.")
         raise typer.Exit(code=1)
+
+    if _STATE["scan_images"]:
+        from .scanners import attach_image_cves
+        with console.status("[bold cyan]Scanning container images with Trivy..."):
+            n = attach_image_cves(cluster, log=_out)
+        console.print(f"[bold cyan]ℹ Trivy:[/] CVEs attached to {n} pod(s).")
 
     if enrich:
         count = enrich_cluster_graph(cluster)
@@ -865,6 +874,9 @@ def cmd_ml_edges(
         console.print("[bold red]❌ Error:[/] You must provide --input or --kubectl.")
         raise typer.Exit(code=1)
 
+    if _STATE["scan_images"]:
+        from .scanners import attach_image_cves
+        attach_image_cves(cluster)
     scorer = get_learned_weights()
     nodes = {n.id: n for n in cluster.nodes}
     rows = []
@@ -905,6 +917,228 @@ def cmd_ml_info():
     _out(MODEL_CARD_MD.read_text(encoding="utf-8"))
 
 
+# ─── One-shot colourful cluster analysis (used by demo/present.sh) ───────────
+
+
+@app.command("analyze")
+def cmd_analyze(
+    context: str = typer.Option(..., "--context", "-c", help="kubectl context of the cluster to analyse."),
+    top: int = typer.Option(5, "--top", "-n", help="Attack paths to explain hop by hop."),
+):
+    """🔬 Step-by-step analysis of one live cluster: scan → pods → CVEs → ML weights → paths."""
+    import time as _time
+    from collections import Counter
+    from rich.table import Table
+    from . import ingestion
+    from .algorithms.critical_node import critical_node_analysis
+    from .algorithms.dijkstra import all_shortest_paths
+    from .algorithms.bfs import blast_radius
+    from .graph_builder import get_source_nodes
+    from .live import scan_summary
+
+    sev_style = {"CRITICAL": "bold white on red", "HIGH": "bold red", "MEDIUM": "bold yellow", "LOW": "green"}
+    basis_style = {"exact-config": "cyan", "cve-model": "bold magenta", "scenario-param": "yellow",
+                   "legacy-prior": "dim"}
+    basis_label = {"exact-config": "config fact", "cve-model": "ML: CVE model",
+                   "scenario-param": "assumption", "legacy-prior": "legacy prior"}
+
+    def step(n, title):
+        console.print(f"\n[bold cyan]━━ {n} {title} [/][cyan]{'━' * max(4, 60 - len(title))}[/]")
+
+    console.print(Panel.fit(f"[bold]Cluster:[/] [bold magenta]{escape(context)}[/]   "
+                            f"[bold]Weights:[/] {DEFAULT_WEIGHT_MODE_NAME()}",
+                            title="[bold]KubeAttackViz analysis[/]", border_style="magenta"))
+
+    # ① scan
+    step("①", "Scanning the cluster with kubectl (read-only)")
+    t0 = _time.time()
+    raw = ingestion.fetch_raw_state(context=context)
+    console.print("  " + escape(scan_summary(raw, _time.time() - t0)), style="white")
+
+    # ② pods
+    step("②", "Pods running")
+    pods = [p for p in raw["pods"]["items"]
+            if p["metadata"]["namespace"] not in ("kube-system", "local-path-storage", "kube-public", "kube-node-lease")]
+    table = Table(box=None, header_style="bold", pad_edge=False)
+    for col in ("NAMESPACE", "POD", "STATUS", "IMAGE", "SERVICE ACCOUNT"):
+        table.add_column(col)
+    for p in sorted(pods, key=lambda x: (x["metadata"]["namespace"], x["metadata"]["name"])):
+        phase = (p.get("status") or {}).get("phase", "?")
+        table.add_row(p["metadata"]["namespace"], f"[bold]{escape(p['metadata']['name'])}[/]",
+                      f"[green]{phase}[/]" if phase == "Running" else f"[yellow]{phase}[/]",
+                      escape(p["spec"]["containers"][0].get("image", "")),
+                      escape(p["spec"].get("serviceAccountName", "default")))
+    console.print(table)
+
+    # ③ graph + Trivy
+    step("③", "Building the attack graph + scanning images (Trivy)")
+    cluster = ingestion.cluster_from_raw(raw)
+    if _STATE["scan_images"]:
+        from .scanners import attach_image_cves
+        n = attach_image_cves(cluster)
+        vuln_pods = [x for x in cluster.nodes if x.type == "pod" and x.properties.get("image_vulnerabilities")]
+        for x in vuln_pods:
+            iv = x.properties["image_vulnerabilities"]
+            kev = f"  [bold red]{len(iv['kev'])} known-exploited (CISA KEV)[/]" if iv["kev"] else ""
+            console.print(f"  [bold]{escape(x.name):<16}[/] {iv['total']:>4} CVEs "
+                          f"([red]{iv['by_severity'].get('CRITICAL', 0)} critical[/], "
+                          f"[yellow]{iv['by_severity'].get('HIGH', 0)} high[/]){kev}")
+        console.print(f"  [dim]CVEs attached to {n} pod(s)[/]")
+    else:
+        console.print("  [dim]image scanning off (use --scan-images)[/]")
+    G = build_attack_graph(cluster)
+    console.print(f"  graph: [bold]{G.number_of_nodes()}[/] nodes, [bold]{G.number_of_edges()}[/] edges · "
+                  f"entry points: [bold red]{escape(', '.join(G.nodes[s]['name'] for s in get_source_nodes(G)))}[/]")
+
+    # ④ ML weights
+    step("④", "ML edge weights  (weight = −ln P(success))")
+    if G.graph.get("weight_mode") == "learned":
+        basis = Counter(d.get("weight_basis") for _, _, d in G.edges(data=True))
+        for k, v in basis.most_common():
+            console.print(f"  [{basis_style.get(k, 'white')}]{basis_label.get(k, k):<14}[/] {v:>3} edges")
+        cve_edges = sorted(((d["p_exploit"], d["exploit_cve"], d["exploit_evidence"], G.nodes[v]["name"])
+                            for _, v, d in G.edges(data=True) if d.get("weight_basis") == "cve-model"),
+                           reverse=True)
+        seen = set()
+        for p, cve, ev, target in cve_edges:
+            if (cve, target) in seen:
+                continue
+            seen.add((cve, target))
+            console.print(f"    [magenta]{cve}[/] on [bold]{escape(target)}[/] → p_exploit = "
+                          f"[bold]{p:.3f}[/] [dim]({ev})[/]")
+            if len(seen) >= 6:
+                break
+    else:
+        console.print("  [yellow]static weights in use — run with --weights learned[/]")
+
+    # ⑤ attack paths
+    paths = all_shortest_paths(G)
+    step("⑤", f"Attack paths — {len(paths)} found, most dangerous first")
+    counts = Counter(p.severity for p in paths)
+    console.print("  " + "  ".join(f"[{sev_style[s]}] {s} {counts.get(s, 0)} [/]"
+                                   for s in ("CRITICAL", "HIGH", "MEDIUM", "LOW")))
+    for rank, p in enumerate(paths[:top], 1):
+        prob = f"  P(path) = [bold]{p.success_probability * 100:.1f}%[/]" if p.success_probability is not None else ""
+        console.print(f"\n  [bold]#{rank}[/] [{sev_style[p.severity]}] {p.severity} [/] risk "
+                      f"[bold]{p.total_risk:.2f}[/]/10{prob}")
+        console.print("     [bold]" + escape(" → ".join(p.path_names)) + "[/]")
+        weakest = None
+        for i in range(len(p.path_nodes) - 1):
+            e = G.edges[p.path_nodes[i], p.path_nodes[i + 1]]
+            hop = f"{G.nodes[p.path_nodes[i]]['name']} ─[{e.get('relationship')}]→ {G.nodes[p.path_nodes[i + 1]]['name']}"
+            b = e.get("weight_basis")
+            if b:
+                ev = (f"{e['exploit_cve']} p_exploit={e['p_exploit']:.3f}" if b == "cve-model" and e.get("exploit_cve")
+                      else (e.get("evidence") or "")[:55])
+                console.print(f"       {i + 1}. {escape(hop):<52} P=[bold]{e['p_success']:.3f}[/]  "
+                              f"[{basis_style.get(b, 'white')}]{basis_label.get(b, b):<14}[/] [dim]{escape(ev)}[/]")
+                if weakest is None or e["p_success"] < weakest[1]:
+                    weakest = (i + 1, e["p_success"], basis_label.get(b, b))
+            else:
+                console.print(f"       {i + 1}. {escape(hop):<52} w={e['weight']:.2f}")
+        if weakest and weakest[1] < 0.9:
+            console.print(f"       [yellow]↳ weakest link: hop {weakest[0]} (P={weakest[1]:.3f}, {weakest[2]})[/]")
+
+    # ⑥ blast radius
+    step("⑥", "Blast radius — what each entry point can reach (3 hops)")
+    for s in get_source_nodes(G):
+        br = blast_radius(G, s, max_depth=3)
+        reached = [n for layer in br.layers.values() for n in layer]
+        sinks = [G.nodes[n]["name"] for n in reached if G.nodes[n].get("is_sink")]
+        console.print(f"  [bold red]{escape(G.nodes[s]['name']):<14}[/] {br.total_affected:>3} nodes, "
+                      f"[bold]{len(sinks)}[/] targets: [magenta]{escape(', '.join(sinks) or '—')}[/]")
+
+    # ⑦ chokepoints
+    step("⑦", "Chokepoints — the best single fix")
+    cn = critical_node_analysis(G, top_n=3)
+    unit = "paths" if cn.metric == "paths" else "source→target pairs"
+    for node_id, name, eliminated in cn.top_nodes:
+        pct = eliminated / max(cn.total_paths_baseline, 1) * 100
+        console.print(f"  [bold green]{escape(name):<24}[/] {escape('[' + str(G.nodes[node_id].get('type')) + ']'):<10} removes "
+                      f"[bold]{eliminated}/{cn.total_paths_baseline}[/] {unit} ({pct:.0f}%)")
+    if not cn.top_nodes:
+        console.print("  [dim]no single chokepoint[/]")
+    console.print()
+
+
+def DEFAULT_WEIGHT_MODE_NAME() -> str:
+    from . import graph_builder as _gb
+    return _gb.DEFAULT_WEIGHT_MODE
+
+
+# ─── Live monitoring ─────────────────────────────────────────────────────────
+
+
+@app.command("serve")
+def cmd_serve(
+    contexts: Optional[list[str]] = typer.Option(
+        None, "--context", "-c",
+        help="kubectl context to monitor (repeatable). Default: every kind-kav-* demo cluster except the lab."),
+    interval: float = typer.Option(15.0, "--interval", "-n", help="Seconds between scans of each cluster."),
+    port: int = typer.Option(8765, "--port", "-p", help="Dashboard port."),
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind address (keep 127.0.0.1 unless you mean to share it)."),
+):
+    """📡 Live multi-cluster monitoring with an auto-refreshing dashboard.
+
+    Uses the global options: e.g. `python main.py --weights learned --scan-images serve`.
+    """
+    import subprocess as _sp
+    from .graph_builder import DEFAULT_WEIGHT_MODE
+    from .live import LiveServer
+
+    if not contexts:
+        out = _sp.run(["kubectl", "config", "get-contexts", "-o", "name"], capture_output=True, text=True).stdout
+        contexts = sorted(c for c in out.split() if c.startswith("kind-kav-") and c != "kind-kav-lab")
+    if not contexts:
+        console.print("[bold red]❌ No clusters to monitor.[/] Create the demo clusters: ./demo/setup.sh")
+        raise typer.Exit(code=1)
+    console.print(Panel.fit(
+        f"[bold cyan]Clusters:[/] {', '.join(contexts)}\n"
+        f"[bold cyan]Interval:[/] {interval:g}s   [bold cyan]Weights:[/] {DEFAULT_WEIGHT_MODE}   "
+        f"[bold cyan]Image scanning:[/] {'Trivy' if _STATE['scan_images'] else 'off'}",
+        title="[bold]KubeAttackViz Live[/]", border_style="cyan"))
+    LiveServer(contexts, interval=interval, scan_images=_STATE["scan_images"], log=_out).serve(host, port)
+
+
+# ─── Lab Commands (controlled experiments on a local kind cluster) ─────────
+
+
+@app.command("lab-run")
+def cmd_lab_run(
+    context: str = typer.Option("kind-kav-lab", "--context", help="kubectl context (must be a local kind-* cluster)."),
+    scenarios: int = typer.Option(20, "--scenarios", "-n", help="Number of randomized scenarios."),
+    seed: int = typer.Option(7, "--seed", help="Scenario generator seed (reproducible)."),
+    fixture: bool = typer.Option(True, "--fixture/--no-fixture", help="Also run the hand-built lab fixture."),
+    keep: bool = typer.Option(False, "--keep", help="Keep scenario resources after measuring (debugging)."),
+):
+    """🧪 Validate the feasibility engine against a real cluster (RBAC, NetworkPolicy, tokens)."""
+    from .lab.kube import LabSafetyError
+    from .lab.report import format_summary, summarize
+    from .lab.runner import run_lab
+
+    try:
+        run = run_lab(context, scenarios, seed, include_fixture=fixture, keep=keep, log=_out)
+    except LabSafetyError as e:
+        console.print(f"[bold red]❌ {e}[/]")
+        raise typer.Exit(code=1)
+    _out(format_summary(summarize(run)))
+
+
+@app.command("lab-report")
+def cmd_lab_report(
+    run_dir: Optional[str] = typer.Argument(None, help="Lab run directory (default: latest)."),
+):
+    """📏 Precision / recall / F1 of the engine on a lab run."""
+    from pathlib import Path as _P
+    from .lab.report import format_summary, latest_run, summarize
+
+    run = _P(run_dir) if run_dir else latest_run()
+    if not run or not (run / "results.jsonl").exists():
+        console.print("[bold yellow]⚠ No lab runs found.[/] Run: python main.py lab-run")
+        raise typer.Exit(code=1)
+    _out(format_summary(summarize(run)))
+
+
 def version_callback(value: bool):
     if value:
         console.print(f"KubeAttackViz v{__version__}")
@@ -925,6 +1159,14 @@ def main(
         False, "--online-cve", envvar="KAV_ONLINE_CVE",
         help="Learned weights: fetch unknown CVEs' NVD records online (cached).",
     ),
+    include_system: bool = typer.Option(
+        False, "--include-system", envvar="KAV_INCLUDE_SYSTEM",
+        help="Live/raw graphs: keep system namespaces, system RBAC and dead-end nodes (full view).",
+    ),
+    scan_images: bool = typer.Option(
+        False, "--scan-images", envvar="KAV_SCAN_IMAGES",
+        help="Scan pod images with Trivy and attach their CVEs (live clusters / raw dumps).",
+    ),
     p_unknown: Optional[float] = typer.Option(
         None, "--p-unknown", envvar="KAV_P_UNKNOWN", min=0.001, max=0.999,
         help="Learned weights: assumed P(foothold) on a reachable workload with NO known CVE "
@@ -938,6 +1180,9 @@ def main(
     critical node analysis, RBAC auditing, temporal diff, NLP explanations,
     and D3.js visualization export.
     """
+    _STATE["scan_images"] = scan_images
+    from . import ingestion as _ingestion
+    _ingestion.INCLUDE_SYSTEM = include_system
     weights = weights.lower()
     if weights not in ("static", "learned"):
         console.print(f"[bold red]❌ --weights must be 'static' or 'learned', got '{weights}'.[/]")
