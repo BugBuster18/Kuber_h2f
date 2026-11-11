@@ -6,6 +6,7 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+source "$ROOT/demo/_python.sh"   # sets $PY: a Python with the project dependencies
 export PATH="$HOME/.local/bin:$PATH"
 PORT="${PORT:-8765}"
 URL="http://127.0.0.1:$PORT/"
@@ -96,7 +97,7 @@ show_pods() {
 show_rbac() {
   local env="$1" ctx="kind-kav-$1"
   printf '\n%s\n' "${BCYN}━━ Who can do what in kav-$env (RBAC) ━━${R}"
-  python3 demo/rbac_view.py "$ctx"
+  "$PY" demo/rbac_view.py "$ctx"
   printf '\n%s\n' "${BCYN}━━ NetworkPolicies ━━${R}"
   local np
   np=$(kubectl --context "$ctx" get networkpolicies -A --no-headers 2>/dev/null | awk '{printf "  %-10s %s\n", $1, $2}')
@@ -106,14 +107,14 @@ show_rbac() {
 run_analysis() {
   local env="$1"
   printf '\n%s\n' "${D}python main.py --weights learned --scan-images analyze -c kind-kav-$env${R}"
-  COLUMNS="${COLUMNS:-$(tput cols)}" python3 main.py --weights learned --scan-images analyze -c "kind-kav-$env" -n 5
+  COLUMNS="${COLUMNS:-$(tput cols)}" "$PY" main.py --weights learned --scan-images analyze -c "kind-kav-$env" -n 5
 }
 
 explain_edges() {
   local env="$1"
   printf '\n%s\n' "${D}python main.py --weights learned --scan-images ml-edges -k   (context kind-kav-$env)${R}"
   KAV_KUBE_CONTEXT="kind-kav-$env" COLUMNS="${COLUMNS:-$(tput cols)}" \
-    python3 main.py --weights learned --scan-images ml-edges -k
+    "$PY" main.py --weights learned --scan-images ml-edges -k
 }
 
 live_monitor() {  # args: env names
@@ -139,7 +140,7 @@ live_monitor() {  # args: env names
   local opener=$!
   trap 'true' INT
   COLUMNS="${COLUMNS:-$(tput cols)}" PYTHONUNBUFFERED=1 \
-    python3 main.py --weights learned --scan-images serve "${ctx[@]}" --interval 15 --port "$PORT" 2>&1 \
+    "$PY" main.py --weights learned --scan-images serve "${ctx[@]}" --interval 15 --port "$PORT" 2>&1 \
     | tee data/live/serve.log
   trap - INT
   kill "$opener" 2>/dev/null

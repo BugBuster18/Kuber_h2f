@@ -13,6 +13,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+source "$ROOT/demo/_python.sh"   # sets $PY: a Python with the project dependencies
 export PATH="$HOME/.local/bin:$PATH"
 PORT="${PORT:-8765}"
 INTERVAL="${INTERVAL:-15}"
@@ -50,7 +51,7 @@ echo "• clusters: $(printf 'kav-%s ' "${CLUSTERS[@]}")"
 
 CONTEXT_ARGS=()
 for env in "${CLUSTERS[@]}"; do CONTEXT_ARGS+=(--context "kind-kav-$env"); done
-SERVE=(python3 main.py --weights learned --scan-images serve "${CONTEXT_ARGS[@]}" --interval "$INTERVAL" --port "$PORT")
+SERVE=("$PY" main.py --weights learned --scan-images serve "${CONTEXT_ARGS[@]}" --interval "$INTERVAL" --port "$PORT")
 
 open_browser_when_ready() {
   for _ in $(seq 1 90); do

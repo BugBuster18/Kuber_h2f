@@ -3,15 +3,16 @@
 #   Tab 1  left:  live monitor — kubectl scans, ML attack-path decisions, alerts
 #          right: pods across clusters / Kubernetes events
 #   Tab 2  a shell for drift commands
-# Env: CLUSTERS="dev prod"  SERVE_CMD="python3 main.py ... serve ..."
+# Env: CLUSTERS="dev prod"  SERVE_CMD="$PY main.py ... serve ..."
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$ROOT/demo/_python.sh"   # sets $PY: a Python with the project dependencies
 PORT="${PORT:-8765}"
 INTERVAL="${INTERVAL:-15}"
 CLUSTERS="${CLUSTERS:-dev staging prod}"
 if [[ -z "${SERVE_CMD:-}" ]]; then
   ctx=""; for env in $CLUSTERS; do ctx+=" --context kind-kav-$env"; done
-  SERVE_CMD="python3 main.py --weights learned --scan-images serve$ctx --interval $INTERVAL --port $PORT"
+  SERVE_CMD="$PY main.py --weights learned --scan-images serve$ctx --interval $INTERVAL --port $PORT"
 fi
 mkdir -p "$ROOT/data/live"
 : > "$ROOT/data/live/serve.log"

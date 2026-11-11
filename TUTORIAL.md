@@ -416,6 +416,7 @@ python main.py --weights learned full-report -i my-cluster.raw.json
 
 | Symptom | Fix |
 |---|---|
+| `ModuleNotFoundError: No module named 'typer'` | that terminal's `python3` has no project packages (e.g. conda not active). The demo scripts pick a Python that has them automatically; for direct `python main.py …` calls, activate your env (`source .venv/bin/activate` or `conda activate`) or run `pip install -r requirements.txt` in it. Force one with `PY=/path/to/python ./demo/present.sh` |
 | `kubectl: command not found` / `kind: command not found` | `~/.local/bin` is not on PATH (§4.5) |
 | `permission denied ... /var/run/docker.sock` | add yourself to the `docker` group and log out/in (§4.1) |
 | `kind create cluster` fails with "too many open files" | `sudo sysctl fs.inotify.max_user_watches=524288 fs.inotify.max_user_instances=512` |
