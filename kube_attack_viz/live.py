@@ -12,6 +12,12 @@ LiveServer serves the visualizer and a small JSON API:
   GET /api/history?cluster=<ctx>    temporal diffs, oldest first (Timeline view)
   GET /api/alerts?since=<seq>       alerts across clusters after a sequence number
 
+With --demo-sample (presentation views, see DemoViews):
+  GET  /api/demo                    current view (1-4) + readiness of each view
+  GET  /api/demo/graph?view=<n>     payload of a view (default: the current one)
+  POST /api/demo/view?view=<n>      switch the view shown in every open dashboard
+  GET  /api/benchmark               last benchmark result (Goat + Bad Pods answer key)
+
 Read-only towards the clusters: only get/list calls are made.
 """
 
@@ -33,6 +39,7 @@ from .graph_builder import build_attack_graph
 from .temporal import Snapshot, diff_snapshots
 
 VISUALIZER_DIR = Path(__file__).resolve().parent.parent / "visualizer"
+BENCHMARK_LATEST = Path(__file__).resolve().parent.parent / "data" / "benchmark" / "latest.json"
 MAX_HISTORY = 200
 EXPLAIN_TOP = 3
 
@@ -92,15 +99,18 @@ def explain_paths(G, paths: list[dict[str, Any]], top: int = EXPLAIN_TOP) -> lis
 
 class ClusterMonitor(threading.Thread):
     def __init__(self, context: str, interval: float, scan_images: bool,
-                 alert_sink: Callable[[str, dict], None], log: Callable[[str], None]):
+                 alert_sink: Callable[[str, dict], None], log: Callable[[str], None],
+                 extra_modes: tuple[str, ...] = ()):
         super().__init__(daemon=True, name=f"monitor-{context}")
         self.context = context
         self.interval = interval
         self.scan_images = scan_images
         self.alert_sink = alert_sink
         self.log = log
+        self.extra_modes = extra_modes     # also publish the graph under these weight modes (demo views)
         self.lock = threading.Lock()
         self.payload: dict[str, Any] | None = None
+        self.payloads: dict[str, dict[str, Any]] = {}   # weight mode -> payload, same scan
         self.history: list[dict[str, Any]] = []
         self.last_snapshot: Snapshot | None = None
         self.version = 0
@@ -136,21 +146,30 @@ class ClusterMonitor(threading.Thread):
             payload = build_frontend_payload(G)
             payload["metadata"].update({"cluster": self.context, "graph_hash": snap.graph_hash,
                                         "scan_errors": raw.get("_errors", {})})
+            payloads = {G.graph.get("weight_mode"): payload}
+            for mode in self.extra_modes:          # same scan, other weighting
+                if mode not in payloads:
+                    p = build_frontend_payload(build_attack_graph(cluster, weight_mode=mode))
+                    p["metadata"].update({"cluster": self.context, "graph_hash": snap.graph_hash})
+                    payloads[mode] = p
         with self.lock:
             self.scans += 1
             self.last_scan_at = datetime.now(timezone.utc).isoformat()
             self.scan_seconds = round(time.time() - t0, 2)
             if changed:
                 self.version += 1
-                payload["metadata"]["version"] = self.version
-                payload["metadata"]["scanned_at"] = self.last_scan_at
+                for p in payloads.values():
+                    p["metadata"]["version"] = self.version
+                    p["metadata"]["scanned_at"] = self.last_scan_at
                 self.payload = payload
+                self.payloads = payloads
                 self.last_snapshot = snap
                 if diff_dict:
                     self.history.append(diff_dict)
                     del self.history[:-MAX_HISTORY]
             elif self.payload is not None:
-                self.payload["metadata"]["scanned_at"] = self.last_scan_at
+                for p in self.payloads.values():
+                    p["metadata"]["scanned_at"] = self.last_scan_at
             self.status, self.error = "ok", None
         if changed:
             self.log(f"[{self.context}] ● graph v{self.version}: {len(payload['nodes'])} nodes, "
@@ -195,13 +214,86 @@ class ClusterMonitor(threading.Thread):
             }
 
 
+class DemoViews:
+    """The four presentation views: {sample, live} cluster x {static, learned} weights.
+
+    The sample cluster's graphs are built once; the live views read the
+    monitor of `live_context`, which publishes both weightings from each scan.
+    The presenter switches views from the terminal (demo/views.sh → POST
+    /api/demo/view) or from the buttons in the dashboard; the browser polls
+    /api/demo and redraws.
+    """
+
+    VIEWS = (
+        (1, "sample", "static", "Sample cluster", "Old weights (paper-style, hand-set)"),
+        (2, "sample", "learned", "Sample cluster", "ML weights (−ln P)"),
+        (3, "live", "static", "Live cluster", "Old weights (paper-style, hand-set)"),
+        (4, "live", "learned", "Live cluster", "ML weights (−ln P)"),
+    )
+
+    def __init__(self, sample_file: str, live_context: str, monitors: dict[str, "ClusterMonitor"]):
+        self.sample_file = sample_file
+        self.live_context = live_context
+        self.monitors = monitors
+        self.sample: dict[str, dict[str, Any]] = {}
+        cluster = ingestion.ingest_from_json(sample_file)
+        for mode in ("static", "learned"):
+            p = build_frontend_payload(build_attack_graph(cluster, weight_mode=mode))
+            p["metadata"].update({"cluster": f"sample:{Path(sample_file).name}", "version": 1})
+            self.sample[mode] = p
+        self.view = 1
+        self.seq = 1                 # bumps on every switch so the browser notices a re-select too
+        self.lock = threading.Lock()
+
+    def _row(self, vid: int) -> tuple:
+        return next(v for v in self.VIEWS if v[0] == vid)
+
+    def payload(self, vid: int) -> dict[str, Any] | None:
+        _, src, mode, _, _ = self._row(vid)
+        if src == "sample":
+            return self.sample[mode]
+        mon = self.monitors[self.live_context]
+        with mon.lock:
+            return mon.payloads.get(mode)
+
+    def select(self, vid: int) -> None:
+        self._row(vid)               # raises StopIteration on an unknown view
+        with self.lock:
+            self.view, self.seq = vid, self.seq + 1
+
+    def state(self) -> dict[str, Any]:
+        mon = self.monitors[self.live_context]
+        live_name = self.live_context.removeprefix("kind-")
+        views = []
+        for vid, src, mode, cluster, weights in self.VIEWS:
+            p = self.payload(vid)
+            views.append({"id": vid, "source": src, "weights": mode, "cluster_label": cluster,
+                          "weights_label": weights,
+                          "cluster_name": live_name if src == "live" else Path(self.sample_file).name,
+                          "ready": p is not None,
+                          "version": (p or {}).get("metadata", {}).get("version"),
+                          "paths": len((p or {}).get("attack_paths", []))})
+        with self.lock:
+            view, seq = self.view, self.seq
+        return {"enabled": True, "view": view, "seq": seq, "views": views,
+                "live": {"context": self.live_context, "status": mon.status, "scans": mon.scans,
+                         "last_scan_at": mon.last_scan_at, "scan_seconds": mon.scan_seconds}}
+
+
 class LiveServer:
     def __init__(self, contexts: list[str], interval: float = 15.0, scan_images: bool = True,
-                 log: Callable[[str], None] = print):
+                 log: Callable[[str], None] = print, demo_sample: str | None = None,
+                 demo_context: str | None = None):
         self.log = log
         self.alerts: list[dict[str, Any]] = []
         self.alerts_lock = threading.Lock()
-        self.monitors = {c: ClusterMonitor(c, interval, scan_images, self._on_alert, log) for c in contexts}
+        demo_context = demo_context or (contexts[0] if demo_sample else None)
+        if demo_context and demo_context not in contexts:
+            contexts = [*contexts, demo_context]
+        self.monitors = {c: ClusterMonitor(c, interval, scan_images, self._on_alert, log,
+                                           extra_modes=("static", "learned") if c == demo_context else ())
+                         for c in contexts}
+        self.demo = DemoViews(demo_sample, demo_context, self.monitors) if demo_sample else None
 
     def _on_alert(self, context: str, alert: dict) -> None:
         with self.alerts_lock:
@@ -251,6 +343,37 @@ class LiveServer:
                     since = int((q.get("since") or ["0"])[0])
                     with server.alerts_lock:
                         return self._json([a for a in server.alerts if a["seq"] > since])
+                if url.path == "/api/demo":
+                    if not server.demo:
+                        return self._json({"enabled": False})
+                    return self._json(server.demo.state())
+                if url.path == "/api/benchmark":
+                    f = BENCHMARK_LATEST
+                    if not f.is_file():
+                        return self._json({"error": "no benchmark yet: python main.py benchmark"}, 404)
+                    return self._json(json.loads(f.read_text()))
+                if url.path == "/api/demo/graph":
+                    if not server.demo:
+                        return self._json({"error": "demo views off (serve --demo-sample)"}, 404)
+                    try:
+                        vid = int((q.get("view") or [server.demo.view])[0])
+                        p = server.demo.payload(vid)
+                    except (ValueError, StopIteration):
+                        return self._json({"error": "unknown view"}, 404)
+                    if p is None:
+                        return self._json({"error": "first scan not finished"}, 503)
+                    return self._json(p)
+                return self._json({"error": "not found"}, 404)
+
+            def do_POST(self):
+                url = urlparse(self.path)
+                q = parse_qs(url.query)
+                if url.path == "/api/demo/view" and server.demo:
+                    try:
+                        server.demo.select(int((q.get("view") or [""])[0]))
+                    except (ValueError, StopIteration):
+                        return self._json({"error": "view must be 1-4"}, 400)
+                    return self._json(server.demo.state())
                 return self._json({"error": "not found"}, 404)
 
         return Handler

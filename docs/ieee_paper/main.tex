@@ -34,8 +34,12 @@ $P(e)$ in one of two ways: steps decided by configuration (RBAC, NetworkPolicy, 
 state, and vulnerability-exploitation steps use a gradient-boosting model trained on 361,825 NVD vulnerabilities labelled with
 the CISA Known Exploited Vulnerabilities catalogue. On a temporal hold-out set, the model improves on the CVSS score from 0.770
 to 0.887 ROC-AUC and from 5\% to 54\% precision in the top 100. Configuration edges agree with the API server on all 21,019
-RBAC checks of a validation cluster. On three live clusters, learned weights reorder attack paths (Spearman $\rho$ 0.48--0.85
-against static coefficients), and the ranking is unchanged for every value of the single remaining assumed parameter up to 0.3.
+RBAC checks of a validation cluster. Against an answer key we did not write, the attack paths documented by the public projects
+Kubernetes Goat and Bad Pods deployed unmodified, both weightings find all seven documented Goat attacks, but learned weights rank
+them at a mean position of 2.5 instead of 17.5 among 80 paths and match 14 of 15 documented answers instead of 12. On three
+live clusters, learned weights reorder attack paths (Spearman $\rho$ 0.57--0.84 against static coefficients), a cluster-admin
+misconfiguration introduced at runtime is ranked first by learned weights but 17th by static ones, and the ranking is unchanged
+for every value of the single remaining assumed parameter up to 0.3.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -64,7 +68,10 @@ objects and Pod Security Policies mapped to Pod Security Standards~\cite{pss};
 \item an edge model that keeps the paper's $\log(1/z)$ formulation but takes $z$ from evidence: exact configuration checks, or a
 CVE exploitation model trained on public data without synthetic labels;
 \item validation of the predicted edges against a running cluster (22,425 checks);
-\item a comparison of static and learned weights on three live clusters, and a sensitivity analysis of the one assumed parameter.
+\item an external benchmark: attack paths documented by Kubernetes Goat~\cite{goat} and Bad Pods~\cite{badpods}, deployed
+unmodified, used as an answer key for both weightings;
+\item a comparison of static and learned weights on three live clusters, a runtime drift experiment, and a sensitivity analysis
+of the one assumed parameter.
 \end{itemize}
 
 % ─────────────────────────────────────────────────────────────────────────────
@@ -127,14 +134,16 @@ vulnerability analysis, automated remediation and prioritisation, and CI/CD inte
 \subsection{Limitations Addressed in This Work}
 We identify four limitations of~\cite{blaise2022}: (L1) coefficients are chosen by hand and a single setting is evaluated;
 (L2) vulnerabilities are \emph{counted}, so a hundred rarely exploited CVEs outweigh one actively exploited CVE; (L3) the
-analysis is static and edges are not checked against a running cluster; (L4) Pod Security Policies were removed in Kubernetes
+analysis is static and neither edges nor paths are checked against a running cluster or an external answer key; (L4) Pod Security Policies were removed in Kubernetes
 v1.25~\cite{pss}.
 
 \subsection{Related Work}
 Attack graphs were generated automatically by model checking~\cite{sheyner2002} and from Datalog rules in
 MulVAL~\cite{mulval2005}. CVSS~\cite{cvss} measures severity rather than likelihood of exploitation. EPSS~\cite{epss} predicts
 exploitation in the next 30 days, and the CISA KEV catalogue~\cite{kev} lists vulnerabilities with confirmed exploitation. We use
-KEV as ground truth and EPSS only as a reference.
+KEV as ground truth and EPSS only as a reference. Kubernetes Goat~\cite{goat} is an intentionally vulnerable cluster whose
+scenarios document attacks step by step, and Bad Pods~\cite{badpods} is a set of eight pod manifests whose documentation states
+whether each gives root on the node. Neither was built to evaluate attack-graph tools, which makes them a neutral answer key.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{System Design}
@@ -191,7 +200,7 @@ Class & Used for & $P(e)$ \\
 \midrule
 exact-config & RBAC grants, token mounts, network reachability, privileged pod \ra\ node & 0.995 if allowed; no edge otherwise \\
 cve-model & exploiting a reachable workload & $1-(1-p_u)(1-p_x)$ \\
-scenario & workload without known exploitable CVE & $p_u=0.05$ \\
+scenario & workload without known exploitable CVE; hostPath, hostPID, hostNetwork, hostIPC & $p_u=0.05$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -279,7 +288,8 @@ success (after, log scale), coloured by evidence class.}
 We built three monitored clusters (dev, staging, prod) and one validation cluster with kind v0.33.0 (Kubernetes v1.37.0,
 kindnet CNI). They run realistic microservices (frontend, API, payments, checkout, ledger, Redis, a CI runner) with deliberate
 misconfigurations of the kinds reported in~\cite{blaise2022}; prod additionally has network policies and hardened pods. Images
-are scanned with Trivy v0.76.1. After scoping to application namespaces, each graph has 19--20 nodes.
+are scanned with Trivy v0.76.1. After scoping to application namespaces, each graph has 19--20 nodes. A fifth cluster,
+bench, runs the unmodified Kubernetes Goat and Bad Pods manifests (26-node graph).
 
 \subsection{Edge Validation on a Live Cluster}
 To address L3, we deployed 26 scenarios on the validation cluster and compared every predicted edge with the cluster's answer:
@@ -306,9 +316,87 @@ Overall & 22,425 & 0.996 & 0.982 & 0.998 \\
 \end{tabular}
 \end{table}
 
+\subsection{Public Benchmark: Kubernetes Goat and Bad Pods}
+Edge validation checks single steps. To check whole paths without writing the answer key ourselves, we deploy the manifests of
+Kubernetes Goat~\cite{goat} and Bad Pods~\cite{badpods} unmodified on the bench cluster (the one Goat component installed with
+Helm is rendered from its default values; the Bad Pods get their own namespace). From Goat we take the seven scenarios whose
+attack follows from configuration (2, 3, 4, 8, 11, 12, 16); the rest concern image contents, audit or runtime tools, or denial
+of service. From Bad Pods we take all eight pods, whose documentation states whether the pod specification alone gives root on
+the node. Following Goat's premise that any application can be compromised, entry points are the Internet, users and every pod,
+giving 80 entry-to-target paths; risks are compared at two decimals, so ties share a rank. For Bad Pods, static weights have no
+probability, so a modelled pod\ra node step counts as a claimed escape; learned weights claim one when $P\ge0.5$.
+
+\begin{table}[t]
+\caption{Kubernetes Goat Attacks: Found and Rank Among 80 Paths}
+\label{tab:goat}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}rlccc@{}}
+\toprule
+\# & Documented attack & Found & Static & Learned \\
+\midrule
+2 & Docker-in-Docker escape to host & \checkmark & \#20 & \textbf{\#1} \\
+3 & SSRF to internal metadata-db & \checkmark & reach. & reach. \\
+4 & container escape to host & \checkmark & \#20 & \textbf{\#1} \\
+8 & NodePort exposes internal service & \checkmark & reach. & reach. \\
+11 & namespace bypass to cache-store & \checkmark & reach. & reach. \\
+12 & vault key from pod environment & \checkmark & \#1 & \textbf{\#1} \\
+16 & SA token reads secrets (RBAC) & \checkmark & \#29 & \textbf{\#7} \\
+\midrule
+\multicolumn{2}{@{}l}{Mean rank of ranked attacks} & 7/7 & 17.5 & \textbf{2.5} \\
+\bottomrule
+\end{tabular}
+\\[2pt]{\scriptsize ``reach.'': target is a workload, so the path is checked but not ranked.}
+\end{table}
+
+\begin{table}[t]
+\caption{Bad Pods: Does the Pod Spec Reach Its Node?}
+\label{tab:badpods}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}rlcccc@{}}
+\toprule
+\# & Pod & Documented & Static & Learned & $P$ \\
+\midrule
+1 & everything allowed & esc. & esc. & esc. & 0.995 \\
+2 & privileged + hostPID & esc. & esc. & esc. & 0.995 \\
+3 & privileged & esc. & esc. & esc. & 0.995 \\
+4 & hostPath & esc. & esc. & \underline{no} & 0.050 \\
+5 & hostPID & no & \underline{esc.} & no & 0.050 \\
+6 & hostNetwork & no & \underline{esc.} & no & 0.050 \\
+7 & hostIPC & no & \underline{esc.} & no & 0.050 \\
+8 & nothing allowed & no & no & no & 0.000 \\
+\midrule
+\multicolumn{3}{@{}l}{Agree with documentation} & 5/8 & \textbf{7/8} & \\
+\bottomrule
+\end{tabular}
+\\[2pt]{\scriptsize Underlined: disagrees with the Bad Pods documentation.}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{benchmark.png}
+\caption{Benchmark summary. Left: rank of each ranked Goat attack. Right: agreement with the 15 documented answers, and the share
+of (escape, non-escape) Bad Pod pairs ordered correctly (dashed: chance).}
+\label{fig:bench}
+\end{figure}
+
+Both weightings find all seven Goat attacks (Table~\ref{tab:goat}): weights change the order of paths, not which edges exist.
+The difference is the ranking. Learned weights rank three of the four ranked attacks first and the fourth seventh, against 20th,
+20th, 1st and 29th with static weights; the seventh place reflects that Goat's images contain KEV-listed CVEs, so many
+``compromise a pod through a known-exploited CVE'' paths score almost equally. On Bad Pods (Table~\ref{tab:badpods}) static
+weights give every pod with any host setting the same pod\ra node edge and so report hostPID, hostNetwork and hostIPC as
+escapes, against the documentation. Learned weights treat privileged pods as configuration-decided and other host settings as
+uncertain, matching seven of eight pods and ordering real escapes above non-escapes in 91\% of pairs (static: 62\%,
+Fig.~\ref{fig:bench}). The one disagreement is hostPath: Bad Pods documents that mounting the host root gives the node, while
+our model rates every hostPath mount at $p_u$; we report the miss rather than adjust the model after seeing the answer key.
+Overall, learned weights match 14 of 15 documented answers and static weights 12.
+
 \subsection{Static Versus Learned Weights}
 Both weightings were applied to the same graphs (Table~\ref{tab:cmp}, Fig.~\ref{fig:sev}). The path rankings differ
-substantially, most in prod ($\rho=0.48$). With static coefficients the one-edge path \emph{ci-runner \ra\ registry-token}
+substantially, most in prod ($\rho=0.57$). With static coefficients the one-edge path \emph{ci-runner \ra\ registry-token}
 ranks first in every cluster because it is short. With learned weights the top path in dev is \emph{dev-bob \ra\
 platform-admins \ra\ cluster-admin} (Fig.~\ref{fig:dev}): each step is a verified RBAC grant, so it succeeds with probability
 0.99 and yields full cluster control. In prod, the break-glass role of \emph{sre-carol} reaches ledger and payment credentials
@@ -329,9 +417,9 @@ Fig.~\ref{fig:edges} explains the reordering at the level of single edges. Stati
 \toprule
 Cluster & Nodes/edges & Paths & Static (C/H/M/L) & Learned (C/H/M/L) & $\rho$ \\
 \midrule
-dev & 20/51 & 16 & 0/13/3/0 & 16/0/0/0 & 0.72 \\
-staging & 19/38 & 11 & 0/8/3/0 & 8/0/3/0 & 0.85 \\
-prod & 19/28 & 19 & 0/5/14/0 & 4/0/8/7 & 0.48 \\
+dev & 20/51 & 16 & 0/13/3/0 & 16/0/0/0 & 0.71 \\
+staging & 19/38 & 11 & 0/8/3/0 & 8/0/3/0 & 0.84 \\
+prod & 19/28 & 19 & 0/5/14/0 & 4/0/8/7 & 0.57 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -362,17 +450,20 @@ paths swap.
 \toprule
 $p_u$ & 0.01 & 0.02 & 0.05 & 0.10 & 0.20 & 0.30 & 0.50 \\
 \midrule
-dev & 1 & 1 & 1 & 1 & 1 & 1 & 0.867 \\
-staging & 1 & 1 & 1 & 1 & 1 & 1 & 0.964 \\
+dev & 1 & 1 & 1 & 1 & 1 & 1 & 0.962 \\
+staging & 1 & 1 & 1 & 1 & 1 & 1 & 0.990 \\
 prod & 1 & 1 & 1 & 1 & 1 & 1 & 1 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Continuous Monitoring}
-The analysis in~\cite{blaise2022} runs once, before deployment. KubeAttackViz re-scans each cluster every 15\,s. When a change
-opens a path, for example binding a ServiceAccount to \texttt{cluster-admin}, deleting a NetworkPolicy or exposing an internal
-service, the snapshot comparison reports new and escalated paths within one interval.
+\subsection{Runtime Drift}
+The analysis in~\cite{blaise2022} runs once, before deployment. KubeAttackViz re-scans each cluster every 15\,s and compares
+snapshots. While monitoring the hardened prod cluster we bound the ServiceAccount of its frontend pod to \texttt{cluster-admin}.
+The change was detected after 16\,s with CRITICAL alerts, and the graph grew from 19 to 21 paths. The new path \emph{ci-runner
+\ra\ frontend \ra\ cluster-admin} (via a deploy RoleBinding and the new binding) ranked first with learned weights ($P=0.975$,
+CRITICAL) but 17th with static weights (MEDIUM), because it is long although every step is a verified grant. Removing the
+binding was detected after 12\,s.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Discussion}
@@ -381,7 +472,10 @@ from~\cite{blaise2022}; our contribution is the source of the probabilities and 
 
 \emph{Threats to validity.} Our live comparison uses three small clusters that we built, so it shows how weighting changes
 rankings rather than how frequent misconfigurations are; the 592-Chart dataset of~\cite{blaise2022} remains the reference for
-prevalence. KEV lists only confirmed exploitation, so absolute probabilities are conservative; ranking metrics are less
+prevalence. The public benchmark has 15 documented cases; it lists the attacks its authors designed, so we report recall and
+rank rather than precision, and ranking documented attacks highly assumes they are among the most dangerous in their cluster.
+The learned model rates every hostPath mount as uncertain, which disagrees with Bad Pods for a writable mount of the host root.
+KEV lists only confirmed exploitation, so absolute probabilities are conservative; ranking metrics are less
 affected. Multiplying probabilities assumes independent steps, as in~\cite{blaise2022}. Reachability of hostNetwork pods is not
 modelled exactly.
 
@@ -399,6 +493,7 @@ Edge weight & $\log(1/z)$, $z$ predefined & $-\ln P$, $P$ proven or learned \\
 Vulnerabilities & count of CVSS $>7$ & exploitation probability \\
 Pod security & Pod Security Policies & Pod Security Standards \\
 Validation & statistics over 592 Charts & 22,425 live-cluster checks \\
+Answer key & none & 14/15 documented (static 12/15) \\
 Sensitivity & not studied & $p_u\in[0.01,0.5]$ \\
 \bottomrule
 \end{tabular}
@@ -408,10 +503,12 @@ Sensitivity & not studied & $p_u\in[0.01,0.5]$ \\
 \emph{Stay at the Helm} showed that Kubernetes security is better analysed as a graph of permissions and movement than as a list of
 checks~\cite{blaise2022}. We kept its formulation and replaced its predefined coefficients with evidence: configuration edges
 proven against the live cluster (all 21,019 RBAC checks correct) and exploitation probabilities learned from 361,825 real CVEs,
-which improve on CVSS from 0.770 to 0.887 ROC-AUC. On three live clusters, learned weights promote configuration-guaranteed paths
-to cluster-admin and production secrets and demote paths that rely on unlikely exploits, and the ranking is insensitive to the
-remaining assumed parameter up to 0.3. Future work is to parse Helm Charts directly so that the 592-Chart dataset can be
-re-evaluated, to model per-tactic probabilities, to handle hostNetwork reachability per network plugin, and to run the analysis
+which improve on CVSS from 0.770 to 0.887 ROC-AUC. On attack paths documented by Kubernetes Goat and Bad Pods, learned weights match
+14 of 15 documented answers (static: 12) and rank the documented attacks at a mean position of 2.5 instead of 17.5. On three live
+clusters they promote configuration-guaranteed paths to cluster-admin and production secrets, demote paths that rely on unlikely
+exploits and rank a runtime cluster-admin misconfiguration first, and the ranking is insensitive to the remaining assumed
+parameter up to 0.3. Future work is to treat writable hostPath mounts of sensitive host directories as configuration-decided, to
+parse Helm Charts directly so that the 592-Chart dataset can be re-evaluated, to model per-tactic probabilities, to handle hostNetwork reachability per network plugin, and to run the analysis
 as a CI/CD or admission gate.
 
 \section*{Acknowledgment}
@@ -440,6 +537,10 @@ graphs,'' in \emph{Proc. IEEE Symp. Security and Privacy}, 2002, pp. 273--284.
 \url{https://www.cisa.gov/known-exploited-vulnerabilities-catalog}
 \bibitem{nvd} NIST, ``National Vulnerability Database.'' [Online]. Available: \url{https://nvd.nist.gov/}
 \bibitem{trivy} Aqua Security, ``Trivy.'' [Online]. Available: \url{https://github.com/aquasecurity/trivy}
+\bibitem{goat} M. Akula, ``Kubernetes Goat,'' GitHub repository, commit 723a0db, 2026. [Online]. Available:
+\url{https://github.com/madhuakula/kubernetes-goat}
+\bibitem{badpods} Bishop Fox, ``Bad Pods: Kubernetes pod privilege escalation,'' GitHub repository, commit 107e5d8, 2025.
+[Online]. Available: \url{https://github.com/BishopFox/badPods}
 \end{thebibliography}
 
 \end{document}

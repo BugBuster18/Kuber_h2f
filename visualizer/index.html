@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=2.5">
+    <link rel="stylesheet" href="styles.css?v=2.8">
 </head>
 <body>
     <!-- ── Top Bar ─────────────────────────────────────────────────────── -->
@@ -90,6 +90,10 @@
                 <label class="rail-toggle" title="Critical Nodes">
                     <input type="checkbox" id="toggle-critical" checked>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </label>
+                <label class="rail-toggle" title="Show all edges">
+                    <input type="checkbox" id="toggle-alledges">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><line x1="7" y1="6" x2="17" y2="6"/><line x1="6" y1="8" x2="11" y2="16"/><line x1="18" y1="8" x2="13" y2="16"/></svg>
                 </label>
             </div>
 
@@ -277,8 +281,9 @@
     </main>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="script.js?v=2.5"></script>
+    <script src="script.js?v=3.1"></script>
     <script src="dashboard.js?v=2.5"></script>
     <script src="nlp-engine.js?v=2.5"></script>
+    <script src="demo.js?v=3.2"></script>
 </body>
 </html>

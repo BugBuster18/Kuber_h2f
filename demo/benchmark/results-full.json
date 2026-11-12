@@ -1,0 +1,597 @@
+{
+  "context": "kind-kav-bench",
+  "expected": "demo/benchmark/expected.yaml",
+  "generated_at": "2026-11-11T22:02:58.537988+00:00",
+  "seconds": 9.9,
+  "entry_points": "internet, users and every pod (Kubernetes Goat assumes any app can be compromised)",
+  "escape_threshold_learned": 0.5,
+  "paths_ranked": {
+    "static": 80,
+    "learned": 80
+  },
+  "summary": {
+    "static": {
+      "goat_found": 7,
+      "goat_total": 7,
+      "goat_ranks": {
+        "goat-2": 20,
+        "goat-4": 20,
+        "goat-12": 1,
+        "goat-16": 29
+      },
+      "goat_mean_rank": 17.5,
+      "badpods_correct": 5,
+      "badpods_total": 8,
+      "badpods_pairwise": 0.625,
+      "paths_ranked": 80
+    },
+    "learned": {
+      "goat_found": 7,
+      "goat_total": 7,
+      "goat_ranks": {
+        "goat-2": 1,
+        "goat-4": 1,
+        "goat-12": 1,
+        "goat-16": 7
+      },
+      "goat_mean_rank": 2.5,
+      "badpods_correct": 7,
+      "badpods_total": 8,
+      "badpods_pairwise": 0.906,
+      "paths_ranked": 80
+    }
+  },
+  "items": [
+    {
+      "id": "goat-2",
+      "group": "kubernetes_goat",
+      "title": "DIND (docker-in-docker) exploitation",
+      "doc": "https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-2/scenario-2.md",
+      "documented": "escape out of the health-check container to the host system",
+      "expect": "reachable",
+      "source": "pod default/health-check-deployment",
+      "target": "node-of default/health-check-deployment",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "health-check-deployment-668dc88ddd-5xgwm",
+            "kav-bench-control-plane"
+          ],
+          "risk": 5.625,
+          "probability": null,
+          "rank": 20,
+          "claims_escape": null,
+          "escape_score": null
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "health-check-deployment-668dc88ddd-5xgwm",
+            "kav-bench-control-plane"
+          ],
+          "risk": 8.955,
+          "probability": 0.995,
+          "rank": 1,
+          "claims_escape": null,
+          "escape_score": null
+        }
+      }
+    },
+    {
+      "id": "goat-3",
+      "group": "kubernetes_goat",
+      "title": "SSRF in the Kubernetes world",
+      "doc": "https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-3/scenario-3.md",
+      "documented": "from the internal-proxy app, query the internal-only metadata-db service",
+      "expect": "reachable",
+      "source": "pod default/internal-proxy-deployment",
+      "target": "pod default/metadata-db",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "internal-proxy-deployment-cf57bf7df-8f8tf",
+            "metadata-db-7c985ff464-kwr8p"
+          ],
+          "risk": 3.333,
+          "probability": null,
+          "rank": null,
+          "claims_escape": null,
+          "escape_score": null
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "internal-proxy-deployment-cf57bf7df-8f8tf",
+            "metadata-db-7c985ff464-kwr8p"
+          ],
+          "risk": 3.962,
+          "probability": 0.9905,
+          "rank": null,
+          "claims_escape": null,
+          "escape_score": null
+        }
+      }
+    },
+    {
+      "id": "goat-4",
+      "group": "kubernetes_goat",
+      "title": "Container escape to the host system",
+      "doc": "https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-4/scenario-4.md",
+      "documented": "escape out of the system-monitor container to the host",
+      "expect": "reachable",
+      "source": "pod default/system-monitor-deployment",
+      "target": "node-of default/system-monitor-deployment",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "system-monitor-deployment-6df959bd6c-829bf",
+            "kav-bench-control-plane"
+          ],
+          "risk": 5.625,
+          "probability": null,
+          "rank": 20,
+          "claims_escape": null,
+          "escape_score": null
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "system-monitor-deployment-6df959bd6c-829bf",
+            "kav-bench-control-plane"
+          ],
+          "risk": 8.955,
+          "probability": 0.995,
+          "rank": 1,
+          "claims_escape": null,
+          "escape_score": null
+        }
+      }
+    },
+    {
+      "id": "goat-8",
+      "group": "kubernetes_goat",
+      "title": "NodePort exposed services",
+      "doc": "https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-8/scenario-8.md",
+      "documented": "reach an internal service from outside through NodePort 30003",
+      "expect": "reachable",
+      "source": "internet",
+      "target": "pod default/internal-proxy-deployment",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "internet",
+            "internal-proxy-deployment-cf57bf7df-8f8tf"
+          ],
+          "risk": 3.2,
+          "probability": null,
+          "rank": null,
+          "claims_escape": null,
+          "escape_score": null
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "internet",
+            "internal-proxy-deployment-cf57bf7df-8f8tf"
+          ],
+          "risk": 3.019,
+          "probability": 0.7546,
+          "rank": null,
+          "claims_escape": null,
+          "escape_score": null
+        }
+      }
+    },
+    {
+      "id": "goat-11",
+      "group": "kubernetes_goat",
+      "title": "Kubernetes namespaces bypass",
+      "doc": "https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-11/scenario-11.md",
+      "documented": "from a pod in the default namespace, reach cache-store in secure-middleware",
+      "expect": "reachable",
+      "source": "pod default/build-code-deployment",
+      "target": "pod secure-middleware/cache-store-deployment",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "build-code-deployment-78677fb484-ztfpg",
+            "cache-store-deployment-5c6c94f9cf-ngl58"
+          ],
+          "risk": 3.333,
+          "probability": null,
+          "rank": null,
+          "claims_escape": null,
+          "escape_score": null
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "build-code-deployment-78677fb484-ztfpg",
+            "cache-store-deployment-5c6c94f9cf-ngl58"
+          ],
+          "risk": 3.019,
+          "probability": 0.7546,
+          "rank": null,
+          "claims_escape": null,
+          "escape_score": null
+        }
+      }
+    },
+    {
+      "id": "goat-12",
+      "group": "kubernetes_goat",
+      "title": "Gaining environment information",
+      "doc": "https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-12/scenario-12.md",
+      "documented": "read the vault key from system-monitor's environment (Secret goatvault)",
+      "expect": "reachable",
+      "source": "pod default/system-monitor-deployment",
+      "target": "secret default/goatvault",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "system-monitor-deployment-6df959bd6c-829bf",
+            "goatvault"
+          ],
+          "risk": 6.667,
+          "probability": null,
+          "rank": 1,
+          "claims_escape": null,
+          "escape_score": null
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "system-monitor-deployment-6df959bd6c-829bf",
+            "goatvault"
+          ],
+          "risk": 8.955,
+          "probability": 0.995,
+          "rank": 1,
+          "claims_escape": null,
+          "escape_score": null
+        }
+      }
+    },
+    {
+      "id": "goat-16",
+      "group": "kubernetes_goat",
+      "title": "RBAC least privileges misconfiguration",
+      "doc": "https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-16/scenario-16.md",
+      "documented": "use the hunger-check ServiceAccount token to read Secret vaultapikey",
+      "expect": "reachable",
+      "source": "pod big-monolith/hunger-check-deployment",
+      "target": "secret big-monolith/vaultapikey",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "hunger-check-deployment-5654cd8db4-w9gg2",
+            "big-monolith-sa",
+            "secret-reader-binding",
+            "vaultapikey"
+          ],
+          "risk": 5.0,
+          "probability": null,
+          "rank": 29,
+          "claims_escape": null,
+          "escape_score": null
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "hunger-check-deployment-5654cd8db4-w9gg2",
+            "big-monolith-sa",
+            "secret-reader-binding",
+            "vaultapikey"
+          ],
+          "risk": 8.866,
+          "probability": 0.9851,
+          "rank": 7,
+          "claims_escape": null,
+          "escape_score": null
+        }
+      }
+    },
+    {
+      "id": "badpod-1",
+      "group": "bad_pods",
+      "title": "#1 Everything allowed",
+      "doc": "https://github.com/BishopFox/badPods/tree/main/manifests/everything-allowed",
+      "documented": "chroot into the mounted host filesystem gives root on the node",
+      "expect": "reachable",
+      "source": "pod badpods/everything-allowed-exec-pod",
+      "target": "node-of badpods/everything-allowed-exec-pod",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "everything-allowed-exec-pod",
+            "kav-bench-control-plane"
+          ],
+          "risk": 5.625,
+          "probability": null,
+          "rank": 20,
+          "claims_escape": true,
+          "escape_score": 5.625
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "everything-allowed-exec-pod",
+            "kav-bench-control-plane"
+          ],
+          "risk": 8.955,
+          "probability": 0.995,
+          "rank": 1,
+          "claims_escape": true,
+          "escape_score": 0.995
+        }
+      }
+    },
+    {
+      "id": "badpod-2",
+      "group": "bad_pods",
+      "title": "#2 Privileged and hostPID",
+      "doc": "https://github.com/BishopFox/badPods/tree/main/manifests/priv-and-hostpid",
+      "documented": "nsenter into PID 1 gives a root shell on the node",
+      "expect": "reachable",
+      "source": "pod badpods/priv-and-hostpid-exec-pod",
+      "target": "node-of badpods/priv-and-hostpid-exec-pod",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "priv-and-hostpid-exec-pod",
+            "kav-bench-control-plane"
+          ],
+          "risk": 5.625,
+          "probability": null,
+          "rank": 20,
+          "claims_escape": true,
+          "escape_score": 5.625
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "priv-and-hostpid-exec-pod",
+            "kav-bench-control-plane"
+          ],
+          "risk": 8.955,
+          "probability": 0.995,
+          "rank": 1,
+          "claims_escape": true,
+          "escape_score": 0.995
+        }
+      }
+    },
+    {
+      "id": "badpod-3",
+      "group": "bad_pods",
+      "title": "#3 Privileged only",
+      "doc": "https://github.com/BishopFox/badPods/tree/main/manifests/priv",
+      "documented": "mount the host disk or use a cgroup escape for root on the node",
+      "expect": "reachable",
+      "source": "pod badpods/priv-exec-pod",
+      "target": "node-of badpods/priv-exec-pod",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "priv-exec-pod",
+            "kav-bench-control-plane"
+          ],
+          "risk": 5.625,
+          "probability": null,
+          "rank": 20,
+          "claims_escape": true,
+          "escape_score": 5.625
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "priv-exec-pod",
+            "kav-bench-control-plane"
+          ],
+          "risk": 8.955,
+          "probability": 0.995,
+          "rank": 1,
+          "claims_escape": true,
+          "escape_score": 0.995
+        }
+      }
+    },
+    {
+      "id": "badpod-4",
+      "group": "bad_pods",
+      "title": "#4 hostPath only",
+      "doc": "https://github.com/BishopFox/badPods/tree/main/manifests/hostpath",
+      "documented": "mounting / gives read/write access to the host filesystem",
+      "expect": "reachable",
+      "source": "pod badpods/hostpath-exec-pod",
+      "target": "node-of badpods/hostpath-exec-pod",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "hostpath-exec-pod",
+            "kav-bench-control-plane"
+          ],
+          "risk": 5.625,
+          "probability": null,
+          "rank": 20,
+          "claims_escape": true,
+          "escape_score": 5.625
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "hostpath-exec-pod",
+            "health-check-deployment-668dc88ddd-5xgwm",
+            "kav-bench-control-plane"
+          ],
+          "risk": 8.87,
+          "probability": 0.9855,
+          "rank": 7,
+          "claims_escape": false,
+          "escape_score": 0.05
+        }
+      }
+    },
+    {
+      "id": "badpod-5",
+      "group": "bad_pods",
+      "title": "#5 hostPID only",
+      "doc": "https://github.com/BishopFox/badPods/tree/main/manifests/hostpid",
+      "documented": "no clear path to root on the node (only process/env snooping)",
+      "expect": "not-reachable",
+      "source": "pod badpods/hostpid-exec-pod",
+      "target": "node-of badpods/hostpid-exec-pod",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "hostpid-exec-pod",
+            "kav-bench-control-plane"
+          ],
+          "risk": 5.625,
+          "probability": null,
+          "rank": 20,
+          "claims_escape": true,
+          "escape_score": 5.625
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "hostpid-exec-pod",
+            "health-check-deployment-668dc88ddd-5xgwm",
+            "kav-bench-control-plane"
+          ],
+          "risk": 8.87,
+          "probability": 0.9855,
+          "rank": 7,
+          "claims_escape": false,
+          "escape_score": 0.05
+        }
+      }
+    },
+    {
+      "id": "badpod-6",
+      "group": "bad_pods",
+      "title": "#6 hostNetwork only",
+      "doc": "https://github.com/BishopFox/badPods/tree/main/manifests/hostnetwork",
+      "documented": "no privileged code execution on the host directly (sniffing, localhost services)",
+      "expect": "not-reachable",
+      "source": "pod badpods/hostnetwork-exec-pod",
+      "target": "node-of badpods/hostnetwork-exec-pod",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "hostnetwork-exec-pod",
+            "kav-bench-control-plane"
+          ],
+          "risk": 5.625,
+          "probability": null,
+          "rank": 20,
+          "claims_escape": true,
+          "escape_score": 5.625
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "hostnetwork-exec-pod",
+            "health-check-deployment-668dc88ddd-5xgwm",
+            "kav-bench-control-plane"
+          ],
+          "risk": 8.87,
+          "probability": 0.9855,
+          "rank": 7,
+          "claims_escape": false,
+          "escape_score": 0.05
+        }
+      }
+    },
+    {
+      "id": "badpod-7",
+      "group": "bad_pods",
+      "title": "#7 hostIPC only",
+      "doc": "https://github.com/BishopFox/badPods/tree/main/manifests/hostipc",
+      "documented": "you most likely can't do much (shared memory only)",
+      "expect": "not-reachable",
+      "source": "pod badpods/hostipc-exec-pod",
+      "target": "node-of badpods/hostipc-exec-pod",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "hostipc-exec-pod",
+            "kav-bench-control-plane"
+          ],
+          "risk": 5.625,
+          "probability": null,
+          "rank": 20,
+          "claims_escape": true,
+          "escape_score": 5.625
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "hostipc-exec-pod",
+            "health-check-deployment-668dc88ddd-5xgwm",
+            "kav-bench-control-plane"
+          ],
+          "risk": 8.87,
+          "probability": 0.9855,
+          "rank": 7,
+          "claims_escape": false,
+          "escape_score": 0.05
+        }
+      }
+    },
+    {
+      "id": "badpod-8",
+      "group": "bad_pods",
+      "title": "#8 Nothing allowed",
+      "doc": "https://github.com/BishopFox/badPods/tree/main/manifests/nothing-allowed",
+      "documented": "host namespaces and capabilities all blocked",
+      "expect": "not-reachable",
+      "source": "pod badpods/nothing-allowed-exec-pod",
+      "target": "node-of badpods/nothing-allowed-exec-pod",
+      "modes": {
+        "static": {
+          "found": true,
+          "path": [
+            "nothing-allowed-exec-pod",
+            "health-check-deployment-668dc88ddd-5xgwm",
+            "kav-bench-control-plane"
+          ],
+          "risk": 5.0,
+          "probability": null,
+          "rank": 29,
+          "claims_escape": false,
+          "escape_score": 0.0
+        },
+        "learned": {
+          "found": true,
+          "path": [
+            "nothing-allowed-exec-pod",
+            "health-check-deployment-668dc88ddd-5xgwm",
+            "kav-bench-control-plane"
+          ],
+          "risk": 8.87,
+          "probability": 0.9855,
+          "rank": 7,
+          "claims_escape": false,
+          "escape_score": 0.0
+        }
+      }
+    }
+  ],
+  "note": "Full benchmark: all 7 Kubernetes Goat scenarios in scope + all 8 Bad Pods, with Trivy image scanning. Reported in the paper/slides. The live demo cluster (./demo/setup.sh bench) runs a 12-node subset."
+}

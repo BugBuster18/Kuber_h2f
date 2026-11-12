@@ -38,7 +38,7 @@ command -v trivy >/dev/null || echo "• trivy not found — CVE scanning will b
 # 1. clusters
 missing=()
 for env in "${CLUSTERS[@]}"; do
-  kind get clusters 2>/dev/null | grep -qx "kav-$env" || missing+=("$env")
+  kind get clusters 2>/dev/null | grep -x "kav-$env" >/dev/null || missing+=("$env")
 done
 if [[ ${#missing[@]} -gt 0 ]]; then
   echo "• creating cluster(s): ${missing[*]}"

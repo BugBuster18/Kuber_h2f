@@ -1061,6 +1061,120 @@ def cmd_analyze(
     console.print()
 
 
+@app.command("benchmark")
+def cmd_benchmark(
+    context: str = typer.Option("kind-kav-bench", "--context", "-c",
+                                help="Cluster running the public benchmark (./demo/setup.sh bench)."),
+    expected: str = typer.Option("demo/benchmark/expected.yaml", "--expected", "-e",
+                                 help="Answer key: documented attack paths with their sources."),
+    output_json: Optional[str] = typer.Option(None, "--output-json", help="Also save the result here."),
+):
+    """📏 Compare our attack paths with paths documented by Kubernetes Goat and Bad Pods (old vs ML weights)."""
+    from rich.table import Table
+    from rich import box
+    from .benchmark import run_benchmark, save
+
+    console.print(Panel.fit(
+        f"[bold]Cluster:[/] [bold magenta]{escape(context)}[/]   [bold]Answer key:[/] {escape(expected)}\n"
+        "[dim]Input: unmodified public manifests (Kubernetes Goat, Bad Pods). "
+        "Output: our attack paths under old and ML weights, checked against the documented ones.[/]",
+        title="[bold]KubeAttackViz benchmark[/]", border_style="magenta"))
+    res = run_benchmark(context, expected, scan_images=_STATE["scan_images"], log=lambda m: None)
+    items = res["items"]
+    S = res["summary"]
+    yes, no = "[bold green]✔[/]", "[bold red]✘[/]"
+
+    def rank(m, mode):
+        if not m["found"]:
+            return "[red]not found[/]"
+        if m["rank"] is None:
+            return "[dim]reachable[/]"
+        return f"#{m['rank']}"
+
+    # ── Kubernetes Goat ────────────────────────────────────────────────────
+    t = Table(title="Kubernetes Goat — documented attack paths", box=box.SIMPLE_HEAVY, title_justify="left",
+              header_style="bold")
+    t.add_column("Scenario")
+    t.add_column("Documented attack", max_width=46)
+    t.add_column("Found", justify="center")
+    t.add_column("Old rank", justify="right")
+    t.add_column("ML rank", justify="right", style="bold magenta")
+    t.add_column("ML P(path)", justify="right")
+    for it in (i for i in items if i["group"] == "kubernetes_goat"):
+        o, l = it["modes"]["static"], it["modes"]["learned"]
+        moved = ""
+        if o["rank"] and l["rank"]:
+            moved = " [green]▲[/]" if l["rank"] < o["rank"] else (" [red]▼[/]" if l["rank"] > o["rank"] else "")
+        t.add_row(f"{it['id']}\n[dim]{escape(it['title'])}[/]", escape(it["documented"]),
+                  yes if l["found"] else no, rank(o, "static"), rank(l, "learned") + moved,
+                  f"{l['probability'] * 100:.1f}%" if l["probability"] is not None else "—")
+    console.print(t)
+    console.print(f"  [dim]Rank = position among all {S['learned']['paths_ranked']} attack paths in the cluster "
+                  f"(entry points: internet, users, every pod; equal risk = equal rank). 'reachable' = the target is a pod, not a "
+                  f"secret/node, so it is checked but not ranked.[/]\n")
+
+    # ── Bad Pods ───────────────────────────────────────────────────────────
+    t = Table(title="Bad Pods — can this pod's own spec reach its node?", box=box.SIMPLE_HEAVY,
+              title_justify="left", header_style="bold")
+    t.add_column("Pod")
+    t.add_column("Documented", max_width=40)
+    t.add_column("Expected", justify="center")
+    t.add_column("Old weights say", justify="center")
+    t.add_column("ML weights say", justify="center", style="bold")
+    t.add_column("ML P(escape)", justify="right")
+    for it in (i for i in items if i["group"] == "bad_pods"):
+        o, l = it["modes"]["static"], it["modes"]["learned"]
+        exp_yes = it["expect"] == "reachable"
+
+        def verdict(m):
+            ok = m["claims_escape"] == exp_yes
+            return f"{'escape' if m['claims_escape'] else 'no escape'} {yes if ok else no}"
+        t.add_row(escape(it["title"]), escape(it["documented"]), "escape" if exp_yes else "no escape",
+                  verdict(o), verdict(l), f"{(l['escape_score'] or 0) * 100:.1f}%")
+    console.print(t)
+
+    # ── Summary ────────────────────────────────────────────────────────────
+    t = Table(title="Summary", box=box.ROUNDED, title_justify="left", header_style="bold")
+    t.add_column("")
+    t.add_column("Old weights (paper-style)", justify="center")
+    t.add_column("ML weights", justify="center", style="bold magenta")
+    o, l = S["static"], S["learned"]
+    t.add_row("Goat paths found (recall)", f"{o['goat_found']}/{o['goat_total']}", f"{l['goat_found']}/{l['goat_total']}")
+    t.add_row("Goat mean rank of documented paths", str(o["goat_mean_rank"]), str(l["goat_mean_rank"]))
+    t.add_row("Bad Pods correct verdicts", f"{o['badpods_correct']}/{o['badpods_total']}",
+              f"{l['badpods_correct']}/{l['badpods_total']}")
+    t.add_row("Bad Pods: real escapes ranked above non-escapes",
+              f"{o['badpods_pairwise'] * 100:.0f}%" if o["badpods_pairwise"] is not None else "—",
+              f"{l['badpods_pairwise'] * 100:.0f}%" if l["badpods_pairwise"] is not None else "—")
+    console.print(t)
+    console.print("  [dim]Old weights have no probability, so any modelled pod→node step counts as a claimed escape; "
+                  f"ML weights claim one when P ≥ {res['escape_threshold_learned']:.0%}. "
+                  "50% on the last row = cannot tell real escapes from non-escapes.[/]")
+    # ── Sources: every documented answer, its link, and whether we match it ──
+    def match(it, mode):
+        m = it["modes"][mode]
+        if it["group"] == "bad_pods":
+            return m["claims_escape"] == (it["expect"] == "reachable")
+        return m["found"]
+    console.print("\n[bold]Sources — the documented answers we compare against[/]  "
+                  "[dim](match = we found the documented path; for Bad Pods, our escape verdict equals theirs)[/]")
+    for group, title, home in (("kubernetes_goat", "Kubernetes Goat", "https://github.com/madhuakula/kubernetes-goat"),
+                               ("bad_pods", "Bad Pods", "https://github.com/BishopFox/badPods")):
+        console.print(f"  [bold magenta]{title}[/]  {home}")
+        for it in (i for i in items if i["group"] == group):
+            o, l = match(it, "static"), match(it, "learned")
+            console.print(f"    {it['id']:<9} old {yes if o else no}  ML {yes if l else no}  "
+                          f"{escape(it['title'])}\n              [link={it['doc']}]{it['doc']}[/link]")
+    if res["skipped_not_deployed"]:
+        console.print(f"  [dim]Not deployed in this cluster, so not checked: {', '.join(res['skipped_not_deployed'])} "
+                      "(full benchmark: BENCH_FULL=1 ./demo/setup.sh bench; saved result: "
+                      "demo/benchmark/results-full.json).[/]")
+    path = save(res)
+    if output_json:
+        Path(output_json).write_text(json.dumps(res, indent=2))
+    console.print(f"\n[bold green]✓[/] result saved: {path}  [dim]({res['seconds']}s)[/]")
+
+
 def DEFAULT_WEIGHT_MODE_NAME() -> str:
     from . import graph_builder as _gb
     return _gb.DEFAULT_WEIGHT_MODE
@@ -1077,6 +1191,12 @@ def cmd_serve(
     interval: float = typer.Option(15.0, "--interval", "-n", help="Seconds between scans of each cluster."),
     port: int = typer.Option(8765, "--port", "-p", help="Dashboard port."),
     host: str = typer.Option("127.0.0.1", "--host", help="Bind address (keep 127.0.0.1 unless you mean to share it)."),
+    demo_sample: Optional[str] = typer.Option(
+        None, "--demo-sample",
+        help="Presentation mode: graph JSON for the sample cluster. Enables the 4 views "
+             "(sample/live x old/ML weights), switched with demo/views.sh."),
+    demo_context: Optional[str] = typer.Option(
+        None, "--demo-context", help="Live cluster used by views 3-4 (default: the first --context)."),
 ):
     """📡 Live multi-cluster monitoring with an auto-refreshing dashboard.
 
@@ -1097,7 +1217,11 @@ def cmd_serve(
         f"[bold cyan]Interval:[/] {interval:g}s   [bold cyan]Weights:[/] {DEFAULT_WEIGHT_MODE}   "
         f"[bold cyan]Image scanning:[/] {'Trivy' if _STATE['scan_images'] else 'off'}",
         title="[bold]KubeAttackViz Live[/]", border_style="cyan"))
-    LiveServer(contexts, interval=interval, scan_images=_STATE["scan_images"], log=_out).serve(host, port)
+    if demo_sample and not Path(demo_sample).is_file():
+        console.print(f"[bold red]❌ Sample cluster not found:[/] {demo_sample}")
+        raise typer.Exit(code=1)
+    LiveServer(contexts, interval=interval, scan_images=_STATE["scan_images"], log=_out,
+               demo_sample=demo_sample, demo_context=demo_context).serve(host, port)
 
 
 # ─── Lab Commands (controlled experiments on a local kind cluster) ─────────

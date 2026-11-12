@@ -1,0 +1,134 @@
+# Answer key for the benchmark: attack paths documented by two public
+# projects, NOT written by us. `python main.py benchmark` deploys nothing; it
+# reads the live cluster (kind-kav-bench, made by ./demo/setup.sh bench) and
+# checks every entry below under both weightings.
+#
+# Endpoint syntax
+#   internet                      the outside world (NodePort/LoadBalancer/Ingress exposure)
+#   pod <namespace>/<prefix>      a pod whose name starts with <prefix> (Deployments add a suffix)
+#   secret <namespace>/<name>     a Secret
+#   node-of <namespace>/<prefix>  the node that pod runs on
+#
+# expect
+#   reachable       the documented attack works: the tool should find the path
+#   not-reachable   the source documents NO direct way: the tool should not claim one
+#                   (checked on the direct pod -> node step only)
+
+kubernetes_goat:
+  source: Kubernetes Goat (Madhu Akula, MIT), https://github.com/madhuakula/kubernetes-goat
+  note: >-
+    Only scenarios whose attack follows from cluster configuration are listed.
+    Scenarios about image contents (1, 7, 15), CIS/audit tools (5, 6, 17, 19),
+    runtime tools (18, 20, 21, 22), DoS (13), the crypto miner (10), the hacker
+    container (14) and the deprecated Helm v2 tiller (9) are out of scope.
+  paths:
+    - id: goat-2
+      title: DIND (docker-in-docker) exploitation
+      doc: https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-2/scenario-2.md
+      documented: escape out of the health-check container to the host system
+      from: pod default/health-check-deployment
+      to: node-of default/health-check-deployment
+      expect: reachable
+    - id: goat-3
+      title: SSRF in the Kubernetes world
+      doc: https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-3/scenario-3.md
+      documented: from the internal-proxy app, query the internal-only metadata-db service
+      from: pod default/internal-proxy-deployment
+      to: pod default/metadata-db
+      expect: reachable
+    - id: goat-4
+      title: Container escape to the host system
+      doc: https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-4/scenario-4.md
+      documented: escape out of the system-monitor container to the host
+      from: pod default/system-monitor-deployment
+      to: node-of default/system-monitor-deployment
+      expect: reachable
+    - id: goat-8
+      title: NodePort exposed services
+      doc: https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-8/scenario-8.md
+      documented: reach an internal service from outside through NodePort 30003
+      from: internet
+      to: pod default/internal-proxy-deployment
+      expect: reachable
+    - id: goat-11
+      title: Kubernetes namespaces bypass
+      doc: https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-11/scenario-11.md
+      documented: from a pod in the default namespace, reach cache-store in secure-middleware
+      from: pod default/build-code-deployment
+      to: pod secure-middleware/cache-store-deployment
+      expect: reachable
+    - id: goat-12
+      title: Gaining environment information
+      doc: https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-12/scenario-12.md
+      documented: read the vault key from system-monitor's environment (Secret goatvault)
+      from: pod default/system-monitor-deployment
+      to: secret default/goatvault
+      expect: reachable
+    - id: goat-16
+      title: RBAC least privileges misconfiguration
+      doc: https://github.com/madhuakula/kubernetes-goat/blob/master/guide/docs/scenarios/scenario-16/scenario-16.md
+      documented: use the hunger-check ServiceAccount token to read Secret vaultapikey
+      from: pod big-monolith/hunger-check-deployment
+      to: secret big-monolith/vaultapikey
+      expect: reachable
+
+bad_pods:
+  source: Bad Pods (Bishop Fox, MIT), https://github.com/BishopFox/badPods
+  note: Each README says whether that pod spec alone gives root on the node. Deployed into namespace badpods.
+  paths:
+    - id: badpod-1
+      title: "#1 Everything allowed"
+      doc: https://github.com/BishopFox/badPods/tree/main/manifests/everything-allowed
+      documented: chroot into the mounted host filesystem gives root on the node
+      from: pod badpods/everything-allowed-exec-pod
+      to: node-of badpods/everything-allowed-exec-pod
+      expect: reachable
+    - id: badpod-2
+      title: "#2 Privileged and hostPID"
+      doc: https://github.com/BishopFox/badPods/tree/main/manifests/priv-and-hostpid
+      documented: nsenter into PID 1 gives a root shell on the node
+      from: pod badpods/priv-and-hostpid-exec-pod
+      to: node-of badpods/priv-and-hostpid-exec-pod
+      expect: reachable
+    - id: badpod-3
+      title: "#3 Privileged only"
+      doc: https://github.com/BishopFox/badPods/tree/main/manifests/priv
+      documented: mount the host disk or use a cgroup escape for root on the node
+      from: pod badpods/priv-exec-pod
+      to: node-of badpods/priv-exec-pod
+      expect: reachable
+    - id: badpod-4
+      title: "#4 hostPath only"
+      doc: https://github.com/BishopFox/badPods/tree/main/manifests/hostpath
+      documented: mounting / gives read/write access to the host filesystem
+      from: pod badpods/hostpath-exec-pod
+      to: node-of badpods/hostpath-exec-pod
+      expect: reachable
+    - id: badpod-5
+      title: "#5 hostPID only"
+      doc: https://github.com/BishopFox/badPods/tree/main/manifests/hostpid
+      documented: no clear path to root on the node (only process/env snooping)
+      from: pod badpods/hostpid-exec-pod
+      to: node-of badpods/hostpid-exec-pod
+      expect: not-reachable
+    - id: badpod-6
+      title: "#6 hostNetwork only"
+      doc: https://github.com/BishopFox/badPods/tree/main/manifests/hostnetwork
+      documented: no privileged code execution on the host directly (sniffing, localhost services)
+      from: pod badpods/hostnetwork-exec-pod
+      to: node-of badpods/hostnetwork-exec-pod
+      expect: not-reachable
+    - id: badpod-7
+      title: "#7 hostIPC only"
+      doc: https://github.com/BishopFox/badPods/tree/main/manifests/hostipc
+      documented: you most likely can't do much (shared memory only)
+      from: pod badpods/hostipc-exec-pod
+      to: node-of badpods/hostipc-exec-pod
+      expect: not-reachable
+    - id: badpod-8
+      title: "#8 Nothing allowed"
+      doc: https://github.com/BishopFox/badPods/tree/main/manifests/nothing-allowed
+      documented: host namespaces and capabilities all blocked
+      from: pod badpods/nothing-allowed-exec-pod
+      to: node-of badpods/nothing-allowed-exec-pod
+      expect: not-reachable

@@ -9,7 +9,7 @@ import sys
 
 B, D, R = "\033[1m", "\033[2m", "\033[0m"
 RED, YEL, MAG = "\033[1;31m", "\033[33m", "\033[35m"
-APP_NS = ("shop", "payments", "ci")
+SYSTEM_NS = ("kube-system", "kube-public", "kube-node-lease", "local-path-storage")
 SKIP = ("system:", "kubeadm:", "kindnet", "local-path")
 
 
@@ -34,9 +34,12 @@ def main(ctx):
         if name.startswith(SKIP) or name == "cluster-admin":   # built-in
             continue
         print(f"  {RED}cluster-wide{R}  {name:<28} → {B}{b['roleRef']['name']:<18}{R} {subjects(b)}")
-    for ns in APP_NS:
-        for b in kubectl_json(ctx, "get", "rolebindings", "-n", ns):
-            print(f"  {YEL}ns {ns:<9}{R}  {b['metadata']['name']:<28} → {B}{b['roleRef']['name']:<18}{R} {subjects(b)}")
+    for b in sorted(kubectl_json(ctx, "get", "rolebindings", "-A"),
+                    key=lambda x: (x["metadata"]["namespace"], x["metadata"]["name"])):
+        ns = b["metadata"]["namespace"]
+        if ns in SYSTEM_NS or b["metadata"]["name"].startswith(SKIP):
+            continue
+        print(f"  {YEL}ns {ns:<9}{R}  {b['metadata']['name']:<28} → {B}{b['roleRef']['name']:<18}{R} {subjects(b)}")
     print(f"\n  {D}kubectl --context {ctx} get rolebindings,clusterrolebindings -A{R}")
 
 

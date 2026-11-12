@@ -136,3 +136,54 @@ python main.py --weights learned full-report -i cluster.json
 KAV_WEIGHTS=learned python main.py diff old.json new.json
 ```
 Add `--online-cve` to fetch NVD records for CVEs not in the shipped score table.
+
+---
+
+## 🎬 10. Presentation Views (old vs ML weights, sample + live cluster)
+
+The single entry point is `./demo/present.sh`: pick a cluster, then option 4. The script can also be run on its own:
+
+```bash
+./demo/views.sh            # live cluster = kav-prod (default)
+./demo/views.sh bench      # live cluster = the public benchmark (Kubernetes Goat + Bad Pods)
+./demo/views.sh dev        # use kav-dev as the live cluster instead
+./demo/stop.sh             # stop the dashboard server afterwards
+```
+
+Starts the dashboard server, opens the browser, and shows a menu. Each key switches the browser view within a second:
+
+| Key | View |
+|---|---|
+| `1` | Sample cluster (`mock-cluster-graph.json`) · old weights (paper-style, hand-set) |
+| `2` | Sample cluster · ML weights (weight = −ln P(success)) |
+| `3` | Live cluster · old weights |
+| `4` | Live cluster · ML weights |
+
+* The same four buttons are at the bottom of the graph in the browser.
+* Top-4 paths are coloured #1 red, #2 orange, #3 purple, #4 green.
+* Every path card shows its rank under the other weights (e.g. `▲ was #4 with old weights`).
+* Old and ML views of one cluster use exactly the same node positions, so only the highlighted paths change.
+* Views 3–4 rescan the live cluster every 15 s. A change shows up on its own, e.g.
+  `./demo/drift.sh prod admin-sa` (undo with `./demo/drift.sh prod admin-sa revert`).
+
+Under the hood: `python main.py --weights learned --scan-images serve --context kind-kav-prod --demo-sample mock-cluster-graph.json`
+(API: `GET /api/demo`, `GET /api/demo/graph?view=N`, `POST /api/demo/view?view=N`).
+
+---
+
+## 📏 11. Benchmark: our paths vs documented attack paths
+
+```bash
+./demo/present.sh                                         # pick kav-bench, then option 5
+# or directly:
+./demo/setup.sh bench                                     # once: kind-kav-bench with Kubernetes Goat + Bad Pods
+python main.py --scan-images benchmark -c kind-kav-bench  # compare
+```
+
+* **Input:** unmodified public manifests ([Kubernetes Goat](https://github.com/madhuakula/kubernetes-goat) and [Bad Pods](https://github.com/BishopFox/badPods)). The answer key is `demo/benchmark/expected.yaml`: every documented attack, with a link to where it is documented.
+* **Output:** for each attack, under old weights and under ML weights:
+  * whether we found the path;
+  * its rank among all attack paths in the cluster;
+  * for Bad Pods, whether we claim the pod can reach its node.
+* Results are saved to `data/benchmark/latest.json`. Details are in `demo/benchmark/README.md`.
+* **Live view:** after option 5, press Enter (or run `VIEW=4 TAB=bench ./demo/views.sh bench`). The dashboard opens at <http://127.0.0.1:8765/?tab=bench> on kav-bench with a **Benchmark: Goat + Bad Pods** tab: the same table, a source link per attack, and a click on a row highlights that documented path in the graph. Keys 3/4 switch old/ML weights (API: `GET /api/benchmark`).

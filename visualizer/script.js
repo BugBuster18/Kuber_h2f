@@ -34,6 +34,9 @@ const ATTACK_PATH_COLOR  = '#DC2626';
 const CYCLE_EDGE_COLOR   = '#EA580C';
 const CRITICAL_NODE_COLOR = '#D97706';
 
+// Presentation views (demo.js): the four highest-ranked paths get their own colour
+const RANK_COLORS = ['#D62839', '#F08C00', '#7048E8', '#0CA678'];
+
 const BASE_RADIUS     = 8;
 const SOURCE_RADIUS   = 12;
 const SINK_RADIUS     = 11;
@@ -57,6 +60,10 @@ let attackPathEdges = new Set();
 let cycleEdges      = new Set();
 let criticalNodeIds = new Set();
 let lastPositions   = new Map();
+let rankEdges       = new Map();
+let visibleEdges    = null;        // Set of "src|tgt" drawn (null = all); see sparseEdgeSet()
+window.__sparseOther = null;       // demo.js: the same cluster under the other weighting   // "src|tgt" -> best rank (0-3) among the top-4 paths (demo views only)
+window.DEMO         = null;        // set by demo.js when the server runs with --demo-sample
 
 // ─── Initialization ─────────────────────────────────────────────────────────
 
@@ -127,6 +134,21 @@ function initSVG() {
         .attr('d', 'M0,-5L10,0L0,5')
         .attr('class', 'arrowhead cycle-arrow');
 
+    // Rank-coloured arrows for the top-4 paths (demo views)
+    RANK_COLORS.forEach((c, r) => {
+        defs.append('marker')
+            .attr('id', `arrowhead-rank${r}`)
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 17)
+            .attr('refY', 0)
+            .attr('markerWidth', 6)
+            .attr('markerHeight', 6)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-5L10,0L0,5')
+            .attr('fill', c);
+    });
+
     // Glow filter for critical nodes
     const glowFilter = defs.append('filter')
         .attr('id', 'glow')
@@ -154,6 +176,12 @@ function initControls() {
     document.getElementById('toggle-cycles').addEventListener('change', updateVisibility);
     document.getElementById('toggle-labels').addEventListener('change', updateVisibility);
     document.getElementById('toggle-critical').addEventListener('change', updateVisibility);
+    document.getElementById('toggle-alledges').addEventListener('change', () => {
+        if (!graphData) return;
+        visibleEdges = sparseEdgeSet(graphData, window.__sparseOther);
+        lastPositions = new Map();          // new edge set: lay out again
+        renderGraph(graphData);
+    });
 
     // Close detail panel
     document.getElementById('btn-close-detail').addEventListener('click', () => {
@@ -210,8 +238,9 @@ function initControls() {
         });
     }
 
-    // Live server (python main.py serve) if available, else static files
-    initDataSource();
+    // Presentation views (serve --demo-sample), else live server, else static files
+    if (typeof tryStartDemo === 'function') tryStartDemo().then(on => { if (!on) initDataSource(); });
+    else initDataSource();
 }
 
 // ─── Data Loading & Dynamic Enrichment ──────────────────────────────────────
@@ -568,7 +597,7 @@ function loadGraphData(data) {
 
     // Populate stats
     document.getElementById('node-count').textContent  = (data.nodes || []).length;
-    document.getElementById('edge-count').textContent   = (data.edges || []).length;
+    document.getElementById('edge-count').textContent   = (data.edges || []).length;   // updated below if sparse
     document.getElementById('path-count').textContent   = (data.attack_paths || []).length;
     document.getElementById('cycle-count').textContent   = (data.cycles || []).length;
     const brandTag = document.querySelector('.brand-tag');
@@ -580,6 +609,7 @@ function loadGraphData(data) {
 
     // Build lookup sets
     buildLookups(data);
+    visibleEdges = sparseEdgeSet(data, window.__sparseOther);
 
     // Render path cards
     renderPathCards(data.attack_paths || []);
@@ -591,6 +621,40 @@ function loadGraphData(data) {
     if (typeof populateDashboard === 'function') {
         populateDashboard(data);
     }
+}
+
+// Drawing density: for n nodes draw n+4 .. n+8 edges. Every edge on an attack
+// path (under this weighting and, in the demo views, the other one too, so
+// old/ML views draw the same picture) is always drawn; other edges are added,
+// non-network ones first, until n+4. Analysis is unaffected: paths, ranks and
+// numbers are computed on every edge. "All edges" in the rail turns it off.
+const SPARSE_MIN_EXTRA = 4, SPARSE_MAX_EXTRA = 8;
+function sparseEdgeSet(data, other) {
+    const all = document.getElementById('toggle-alledges');
+    if (all && all.checked) return null;
+    const keyOf = e => `${e.source.id || e.source}|${e.target.id || e.target}`;
+    const keys = [...new Set((data.edges || []).map(keyOf))];
+    const n = (data.nodes || []).length;
+    if (keys.length <= n + SPARSE_MAX_EXTRA) return null;          // already sparse
+    const exists = new Set(keys);
+    const must = new Set();
+    // the attack paths of both weightings, plus documented benchmark paths (demo.js) are always drawn
+    for (const src of [data, other, { attack_paths: window.__benchPaths || [] }]) {
+        for (const p of (src && src.attack_paths) || []) {
+            const ns = p.path_nodes || [];
+            for (let i = 0; i < ns.length - 1; i++) {
+                const k = `${ns[i]}|${ns[i + 1]}`;
+                if (exists.has(k)) must.add(k);
+            }
+        }
+    }
+    const rel = new Map((data.edges || []).map(e => [keyOf(e), e.relationship]));
+    const rest = keys.filter(k => !must.has(k)).sort((a, b) =>
+        ((rel.get(a) === 'connects_to') - (rel.get(b) === 'connects_to')) || a.localeCompare(b));
+    const target = Math.min(n + SPARSE_MAX_EXTRA, Math.max(n + SPARSE_MIN_EXTRA, must.size));
+    const out = new Set(must);
+    for (const k of rest) { if (out.size >= target) break; out.add(k); }
+    return out;
 }
 
 function buildLookups(data) {
@@ -614,6 +678,18 @@ function buildLookups(data) {
             const tgt = ids[(i + 1) % ids.length];
             cycleEdges.add(`${src}|${tgt}`);
         }
+    }
+
+    // Top-4 path edges, coloured by rank in the demo views
+    rankEdges = new Map();
+    if (window.DEMO) {
+        (data.attack_paths || []).slice(0, 4).forEach((path, r) => {
+            const ns = path.path_nodes || [];
+            for (let i = 0; i < ns.length - 1; i++) {
+                const k = `${ns[i]}|${ns[i + 1]}`;
+                if (!rankEdges.has(k)) rankEdges.set(k, r);
+            }
+        });
     }
 
     // Critical nodes
@@ -642,6 +718,10 @@ function renderPathCards(paths) {
         const card = document.createElement('div');
         card.className = 'path-card';
         card.dataset.index = idx;
+        if (window.DEMO && idx < 4) {
+            card.classList.add('path-card-ranked');
+            card.style.setProperty('--rank-color', RANK_COLORS[idx]);
+        }
 
         const names = (path.path_names || []).join(' → ');
         const severity = path.severity || 'LOW';
@@ -656,6 +736,7 @@ function renderPathCards(paths) {
                 <span class="sev sev-${severity}">${severity}</span>
             </div>
             <div class="path-card-route">${names}</div>
+            ${path._compare ? `<div class="path-card-compare ${path._compare.cls}">${path._compare.text}</div>` : ''}
             <div class="path-card-footer">
                 <span style="font-size:0.68rem; color:var(--text-3); font-family:'JetBrains Mono',monospace">${hops} hops • Risk ${risk}${prob}</span>
                 <button type="button" class="btn-explain-nlp" data-idx="${idx}" title="Explain this attack path in plain English">
@@ -732,6 +813,15 @@ function clearHighlight() {
 
 // ─── Graph Rendering ────────────────────────────────────────────────────────
 
+// Graph labels only: drop the random suffixes Kubernetes adds to pods made by a
+// Deployment (-<replicaset hash>-<5 chars>) or a Job (-<5 chars>). Tooltips,
+// path cards and reports keep the full name.
+function shortName(d) {
+    const name = d.name || d.id;
+    if (d.type !== 'pod') return name;
+    return name.replace(/-[a-z0-9]{8,10}-[a-z0-9]{5}$/, '').replace(/-(job|deployment)-[a-z0-9]{5}$/, '-$1');
+}
+
 function renderGraph(data) {
     const width  = document.getElementById('graph-container').clientWidth;
     const height = document.getElementById('graph-container').clientHeight;
@@ -750,26 +840,40 @@ function renderGraph(data) {
         const prev = keep ? lastPositions.get(d.id) : null;
         return prev ? { ...d, x: prev.x, y: prev.y } : { ...d };
     });
-    const edges = data.edges.map(d => ({ ...d }));
+    const edges = data.edges
+        .filter(d => !visibleEdges || visibleEdges.has(`${d.source.id || d.source}|${d.target.id || d.target}`))
+        .map(d => ({ ...d }));
+    const ec = document.getElementById('edge-count');
+    if (ec) {
+        ec.textContent = visibleEdges ? `${edges.length}/${data.edges.length}` : `${data.edges.length}`;
+        ec.title = visibleEdges ? `${edges.length} of ${data.edges.length} edges drawn (attack-path edges + nearest others); `
+            + 'every edge is used in the analysis. Turn on "All edges" in the left rail to draw them all.' : '';
+    }
 
     // ── Force Simulation ────────────────────────────────────────────────────
+    // Small graphs in the demo views get more room so they read as spread out
+    const spread = !!window.DEMO && nodes.length < 25;
     simulation = d3.forceSimulation(nodes)
         .force('link', d3.forceLink(edges)
             .id(d => d.id)
-            .distance(d => 80 + (d.weight || 1) * 10)
+            // demo views: one distance for every edge, so old and ML weights draw the same picture
+            .distance(d => window.DEMO ? (spread ? 140 : 95) : 80 + (d.weight || 1) * 10)
             .strength(0.4)
         )
         .force('charge', d3.forceManyBody()
-            .strength(-300)
+            .strength(spread ? -900 : -300)
             .distanceMax(500)
         )
         .force('center', d3.forceCenter(width / 2, height / 2))
-        .force('collision', d3.forceCollide().radius(25))
+        .force('collision', d3.forceCollide().radius(spread ? 45 : 25))
         .force('x', d3.forceX(width / 2).strength(0.05))
         .force('y', d3.forceY(height / 2).strength(0.05))
         .alphaDecay(0.02)
         .velocityDecay(0.4);
-    if (keep) simulation.alpha(0.15);
+    // demo: old <-> ML weights show the same nodes, so freeze them in place; a live
+    // change that adds nodes still runs a short settle so the new ones find a spot
+    const allKept = keep && data.nodes.every(d => lastPositions.has(d.id));
+    if (keep) simulation.alpha(window.DEMO && allKept ? 0 : 0.15);
     simulation.on('end.positions', () => {
         lastPositions = new Map(nodes.map(n => [n.id, { x: n.x, y: n.y }]));
     });
@@ -785,10 +889,16 @@ function renderGraph(data) {
             let cls = 'link-line';
             if (attackPathEdges.has(key)) cls += ' attack-path-edge';
             if (cycleEdges.has(key)) cls += ' cycle-edge';
+            if (window.DEMO && attackPathEdges.has(key)) cls += rankEdges.has(key) ? ` rank-edge rank-${rankEdges.get(key)}` : ' minor-path-edge';
             return cls;
+        })
+        .style('stroke', d => {
+            const r = rankEdges.get(`${d.source.id || d.source}|${d.target.id || d.target}`);
+            return r === undefined ? null : RANK_COLORS[r];
         })
         .attr('marker-end', d => {
             const key = `${d.source.id || d.source}|${d.target.id || d.target}`;
+            if (rankEdges.has(key)) return `url(#arrowhead-rank${rankEdges.get(key)})`;
             if (attackPathEdges.has(key)) return 'url(#arrowhead-attack)';
             if (cycleEdges.has(key)) return 'url(#arrowhead-cycle)';
             return 'url(#arrowhead)';
@@ -832,7 +942,7 @@ function renderGraph(data) {
         .append('text')
         .attr('class', 'node-label')
         .attr('dy', d => getNodeRadius(d) + 14)
-        .text(d => d.name);
+        .text(d => shortName(d));
 
     // ── Tick ────────────────────────────────────────────────────────────────
     simulation.on('tick', () => {
@@ -850,6 +960,15 @@ function renderGraph(data) {
             .attr('x', d => d.x)
             .attr('y', d => d.y);
     });
+
+    // Demo views: settle the layout at once (no animation). The layout is
+    // deterministic for a given node/edge set, so the old- and ML-weight views
+    // of one cluster always get the same picture, even when loaded fresh.
+    if (window.DEMO && !keep) {
+        simulation.stop();
+        simulation.tick(400);
+        simulation.alpha(0).restart();     // one step: draws the final positions, fires 'end'
+    }
 
     // Initial visibility
     updateVisibility();
@@ -891,8 +1010,14 @@ function zoomToFit() {
     
     if (width === 0 || height === 0) return;
     
-    const scale = 0.85 / Math.max(width / fullWidth, height / fullHeight);
-    const translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
+    // Demo views: fit the graph between the search box (top) and the view bar (bottom)
+    const bar = window.DEMO ? document.getElementById('demo-bar') : null;
+    const top = bar ? 150 : 0;
+    const bottom = bar ? bar.offsetHeight + 24 : 0;
+    const usableHeight = Math.max(100, fullHeight - top - bottom);
+
+    const scale = (bar ? 0.95 : 0.85) / Math.max(width / fullWidth, height / usableHeight);
+    const translate = [fullWidth / 2 - scale * midX, top + usableHeight / 2 - scale * midY];
 
     svg.transition()
         .duration(750)
